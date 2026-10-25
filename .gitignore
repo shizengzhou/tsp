@@ -7,6 +7,7 @@
 *.dll
 *.so
 *.dylib
+/tsp
 
 # Test binary, built with `go test -c`
 *.test
@@ -24,6 +25,9 @@ profile.cov
 # Go workspace file
 go.work
 go.work.sum
+
+# GoReleaser
+dist/
 
 # env file
 .env
