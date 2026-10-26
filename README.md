@@ -77,6 +77,32 @@ go install .
 
 ## Usage
 
+### Terminal color themes (alacritty)
+
+```bash
+tsp themes
+```
+
+Browse the color schemes in the alacritty config directory (`~/.config/alacritty/themes`, or `$ALACRITTY_CONFIG_DIRECTORY/themes`). It refuses to run outside alacritty, because the selected colors can only be seen there. On first run, when that directory is missing, the alacritty ports from [iTerm2-Color-Schemes](https://github.com/mbadolato/iTerm2-Color-Schemes) are downloaded into it. The list is on the left; the right pane previews the palette, the foreground/background colors and a sample of terminal output drawn with the theme itself.
+
+`Enter` makes alacritty use the theme: it points `general.import` in `alacritty.toml` at the theme file and comments out inline `[colors*]` tables so the import actually wins (alacritty loads the importing file last). A `.bck` backup of the config is kept, and alacritty reloads it automatically. YAML configs are rejected; convert them to TOML first.
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--themes DIR` | theme directory | `<alacritty config dir>/themes` |
+| `--config FILE` | alacritty config to edit | `alacritty.toml` in the config dir |
+
+Keys: `Up`/`Down`, `j`/`k`, `PgUp`/`PgDn`, `g`/`G`, start typing or `/` to filter, `Enter` applies, `Esc` clears the filter, `q` quits.
+
+### Version and updates
+
+```bash
+tsp version
+tsp update
+```
+
+`tsp version` prints the build version (`dev` for local builds, the release tag for downloaded binaries). `tsp update` checks the latest GitHub release, downloads the matching archive for the current OS/architecture, verifies it against the release checksums, and replaces the running binary in place. Use `sudo tsp update` when tsp lives in a directory you cannot write to, or re-run the install script. `TSP_BASE_URL` and `TSP_API_URL` override the download and API endpoints, like the install scripts.
+
 ### Themes
 
 ```bash
@@ -197,6 +223,9 @@ Previews are cached per theme and width, and are rendered on selection. At most 
 ## Other behavior
 
 - All browsers must run in an interactive terminal; piped output fails with an error.
+- `tsp themes` refuses to run outside alacritty (detected via `ALACRITTY_SOCKET`/`ALACRITTY_WINDOW_ID`, `TERM_PROGRAM=Alacritty`, or a `TERM` starting with `alacritty`) because the colors are only visible there.
+- `tsp themes` only understands alacritty's TOML color files; a `.yml` config is rejected with a migration hint.
+- The first `tsp themes` run needs network access to list and download the alacritty themes; a failed download leaves no themes directory behind.
 - `tsp omz themes` without oh-my-zsh (or when `<zsh>/themes` is empty) exits with status 1 and a hint to pass `--zsh`.
 - `tsp omp themes` without `oh-my-posh` on `PATH`, or when no theme is found, exits with status 1 and a hint to pass `--themes`.
 - A missing custom directory is fine; the Custom tab is simply empty.
@@ -220,11 +249,17 @@ git push origin v0.1.0
 main.go                 command dispatch and help
 install.sh              install script for macOS/Linux
 install.ps1             install script for Windows
+internal/update/update.go self update from GitHub releases
 internal/omz/theme.go   theme discovery ($ZSH/themes + $ZSH_CUSTOM)
 internal/omz/preview.go theme preview renderer, temporary HOME, cache
 internal/omz/ui.go      theme browser interface
 internal/omz/set.go     applies themes via omz theme set
 internal/omz/run.go     themes entry point and terminal check
+internal/alacritty/theme.go alacritty theme discovery and TOML color parsing
+internal/alacritty/download.go first-run download from iTerm2-Color-Schemes
+internal/alacritty/set.go points general.import at a theme, comments inline colors
+internal/alacritty/ui.go alacritty theme browser interface
+internal/alacritty/run.go themes entry point, first-run setup
 internal/omp/theme.go   oh-my-posh theme discovery (incl. the Store package)
 internal/omp/preview.go oh-my-posh preview renderer, temporary HOME, cache
 internal/omp/ui.go      oh-my-posh theme browser interface

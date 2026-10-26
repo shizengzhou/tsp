@@ -5,19 +5,57 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/shizengzhou/tsp/internal/alacritty"
 	"github.com/shizengzhou/tsp/internal/fonts"
 	"github.com/shizengzhou/tsp/internal/omp"
 	"github.com/shizengzhou/tsp/internal/omz"
+	"github.com/shizengzhou/tsp/internal/update"
 )
 
 const usage = `tsp is a collection of small terminal tools.
 
 Usage:
+  tsp themes [flags]        browse and apply alacritty color themes
   tsp omz themes [flags]    browse and preview oh-my-zsh themes
   tsp omp themes [flags]    browse and preview oh-my-posh themes
   tsp fonts                 browse installed monospaced fonts and print the chosen family
+  tsp version               print the tsp version
+  tsp update                update tsp to the latest release
 
 Run "tsp <command> -h" for the flags of a command.
+`
+
+const updateUsage = `Usage:
+  tsp update
+
+Update the running tsp binary to the latest GitHub release. The archive is
+verified against the release checksums before it replaces the current binary.
+If tsp lives in a directory you cannot write to, run it with sudo or use the
+install script again.
+`
+
+// version is set at build time via -ldflags "-X main.version=...".
+var version = "dev"
+
+const themesUsage = `Usage:
+  tsp themes [flags]
+
+Browse alacritty color themes: the list is on the left, a live palette and a
+sample of terminal output on the right. It must be run inside alacritty, since
+the selected colors are only visible there; otherwise it exits with an error.
+If the themes directory does not exist yet, the alacritty themes from
+mbadolato/iTerm2-Color-Schemes are downloaded into it first. Enter points
+alacritty's general.import at the theme and comments out inline [colors]
+settings so the theme takes effect (a .bck backup of the config is kept;
+alacritty reloads it automatically).
+
+Flags:
+  --themes DIR   theme directory (default <alacritty config dir>/themes)
+  --config FILE  alacritty config to edit (default alacritty.toml)
+
+Keys:
+  ↑/↓ j/k   move        /   filter       ⏎  apply theme
+  q         quit        esc clear filter
 `
 
 const omzUsage = `Usage:
@@ -84,12 +122,19 @@ func run(args []string) error {
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 		return nil
+	case "themes":
+		return runThemes(args[1:])
 	case "omz":
 		return runOmz(args[1:])
 	case "omp":
 		return runOmp(args[1:])
 	case "fonts":
 		return runFonts(args[1:])
+	case "version", "--version", "-v":
+		fmt.Printf("tsp %s\n", version)
+		return nil
+	case "update":
+		return runUpdate(args[1:])
 	default:
 		return fmt.Errorf("unknown command %q\n\n%s", args[0], usage)
 	}
@@ -106,6 +151,35 @@ func runFonts(args []string) error {
 		}
 	}
 	return fonts.RunFonts(fonts.Options{})
+}
+
+func runThemes(args []string) error {
+	opts := alacritty.Options{}
+	fs := flag.NewFlagSet("tsp themes", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	fs.StringVar(&opts.ThemeDir, "themes", "", "")
+	fs.StringVar(&opts.ConfigFile, "config", "", "")
+	fs.Usage = func() { fmt.Print(themesUsage) }
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() > 0 {
+		return fmt.Errorf("unexpected argument %q", fs.Arg(0))
+	}
+	return alacritty.Run(opts)
+}
+
+func runUpdate(args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "-h", "--help", "help":
+			fmt.Print(updateUsage)
+			return nil
+		default:
+			return fmt.Errorf("unexpected argument %q", args[0])
+		}
+	}
+	return update.Run(update.Options{CurrentVersion: version})
 }
 
 func runOmz(args []string) error {

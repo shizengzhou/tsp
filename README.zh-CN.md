@@ -71,6 +71,32 @@ go install .
 
 ## 使用
 
+### 终端配色主题（alacritty）
+
+```bash
+tsp themes
+```
+
+浏览 alacritty 配置目录下的配色主题（`~/.config/alacritty/themes`，或 `$ALACRITTY_CONFIG_DIRECTORY/themes`）。该命令必须在 alacritty 内运行，因为在其他终端里看不到所选配色的效果，非 alacritty 终端会直接报错退出。首次运行且该目录不存在时，会先从 [iTerm2-Color-Schemes](https://github.com/mbadolato/iTerm2-Color-Schemes) 下载 alacritty 版本的主题到该目录。左侧是主题列表，右侧用主题自身的颜色预览调色板、前景/背景色和一段示例终端输出。
+
+`Enter` 会让 alacritty 使用该主题：把 `alacritty.toml` 的 `general.import` 指向主题文件，并注释掉内联的 `[colors*]` 表（alacritty 最后加载主配置文件，不注释的话内联颜色会覆盖导入的主题）。配置会保留 `.bck` 备份，alacritty 自动重载生效。YAML 配置不受支持，需先转换为 TOML。
+
+| 参数 | 说明 | 默认值 |
+| --- | --- | --- |
+| `--themes DIR` | 主题目录 | `<alacritty 配置目录>/themes` |
+| `--config FILE` | 要修改的 alacritty 配置文件 | 配置目录下的 `alacritty.toml` |
+
+按键：`↑`/`↓`、`j`/`k`、`PgUp`/`PgDn`、`g`/`G`，直接输入或 `/` 过滤，`Enter` 应用，`Esc` 清空过滤，`q` 退出。
+
+### 版本与更新
+
+```bash
+tsp version
+tsp update
+```
+
+`tsp version` 打印构建版本（本地构建为 `dev`，发布包为对应的 tag）。`tsp update` 会检查 GitHub 最新 release，按当前系统/架构下载对应压缩包，用 release 的校验和验证后原地替换当前二进制。若 tsp 所在目录不可写，可用 `sudo tsp update`，或重新运行安装脚本。`TSP_BASE_URL`、`TSP_API_URL` 可覆盖下载与 API 地址，与安装脚本一致。
+
 ### 主题
 
 ```bash
@@ -191,6 +217,9 @@ font="$(tsp fonts)"
 ## 其它行为
 
 - 所有浏览器都必须在交互式终端中运行；输出被管道接走时会报错
+- `tsp themes` 必须运行在 alacritty 内（通过 `ALACRITTY_SOCKET`/`ALACRITTY_WINDOW_ID`、`TERM_PROGRAM=Alacritty` 或 `TERM` 以 `alacritty` 开头识别），否则直接报错退出
+- `tsp themes` 只解析 alacritty 的 TOML 配色文件；`.yml` 配置会被拒绝并提示先迁移到 TOML
+- 首次运行 `tsp themes` 需要联网获取并下载 alacritty 主题；下载失败时不会留下 themes 目录
 - `tsp omz themes` 在未安装 oh-my-zsh（或 `<zsh>/themes` 为空）时报错并以退出码 1 结束，可用 `--zsh` 指定实际路径
 - `tsp omp themes` 在 `oh-my-posh` 不在 `PATH`、或找不到任何主题时报错并以退出码 1 结束，可用 `--themes` 指定实际目录
 - 自定义目录不存在不影响使用，只是 Custom 页为空
@@ -214,11 +243,17 @@ git push origin v0.1.0
 main.go                 命令分发与帮助
 install.sh              macOS/Linux 安装脚本
 install.ps1             Windows 安装脚本
+internal/update/update.go 从 GitHub release 自更新
 internal/omz/theme.go   主题发现（$ZSH/themes + $ZSH_CUSTOM）
 internal/omz/preview.go 主题预览渲染器、临时 HOME、结果缓存
 internal/omz/ui.go      主题浏览器界面
 internal/omz/set.go     调用 omz theme set 应用主题
 internal/omz/run.go     主题入口与终端检查
+internal/alacritty/theme.go 主题发现与 TOML 颜色解析
+internal/alacritty/download.go 首次运行从 iTerm2-Color-Schemes 下载
+internal/alacritty/set.go 写入 general.import 并注释内联颜色
+internal/alacritty/ui.go 配色主题浏览器界面
+internal/alacritty/run.go 主题入口、首次运行准备
 internal/omp/theme.go   oh-my-posh 主题发现（含 Store 包目录）
 internal/omp/preview.go oh-my-posh 主题预览渲染器、临时 HOME、结果缓存
 internal/omp/ui.go      oh-my-posh 主题浏览器界面

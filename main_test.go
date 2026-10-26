@@ -39,3 +39,17 @@ func TestRunFontsRejectsExtraArgument(t *testing.T) {
 		t.Fatalf("run(fonts extra) error = %v, want unexpected argument", err)
 	}
 }
+
+func TestRunTerminalThemesRejectsExtraArgument(t *testing.T) {
+	err := run([]string{"themes", "extra"})
+	if err == nil || !strings.Contains(err.Error(), "unexpected argument") {
+		t.Fatalf("run(themes extra) error = %v, want unexpected argument", err)
+	}
+}
+
+func TestRunUpdateRejectsExtraArgument(t *testing.T) {
+	err := run([]string{"update", "extra"})
+	if err == nil || !strings.Contains(err.Error(), "unexpected argument") {
+		t.Fatalf("run(update extra) error = %v, want unexpected argument", err)
+	}
+}
