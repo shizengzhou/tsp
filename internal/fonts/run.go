@@ -28,7 +28,7 @@ func runBrowser(families []Family) error {
 	}
 
 	ui := NewUI(families)
-	ui.graphics = graphicsSupported()
+	ui.protocol = detectImageProtocol()
 
 	final, err := tea.NewProgram(ui, tea.WithAltScreen()).Run()
 	if err != nil {

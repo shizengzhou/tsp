@@ -7,47 +7,58 @@ import (
 	"testing"
 )
 
-func TestGraphicsSupported(t *testing.T) {
+func TestDetectImageProtocol(t *testing.T) {
 	t.Setenv("TSP_GRAPHICS", "")
 	t.Setenv("TMUX", "")
 	t.Setenv("KITTY_WINDOW_ID", "")
 	t.Setenv("WEZTERM_PANE", "")
+	t.Setenv("LC_TERMINAL", "")
 	t.Setenv("TERM", "xterm-256color")
 	t.Setenv("TERM_PROGRAM", "vscode")
 
-	if graphicsSupported() {
-		t.Error("graphics should be unsupported in a plain terminal")
+	if got := detectImageProtocol(); got != imageProtocolNone {
+		t.Errorf("plain terminal protocol = %v, want none", got)
 	}
 
 	t.Setenv("TERM_PROGRAM", "ghostty")
-	if !graphicsSupported() {
-		t.Error("ghostty should be detected")
+	if got := detectImageProtocol(); got != imageProtocolKitty {
+		t.Errorf("ghostty protocol = %v, want kitty", got)
+	}
+	t.Setenv("TERM_PROGRAM", "iTerm.app")
+	if got := detectImageProtocol(); got != imageProtocolIterm {
+		t.Errorf("iTerm.app protocol = %v, want iterm", got)
 	}
 	t.Setenv("TERM_PROGRAM", "vscode")
 
+	t.Setenv("LC_TERMINAL", "iTerm2")
+	if got := detectImageProtocol(); got != imageProtocolIterm {
+		t.Errorf("LC_TERMINAL=iTerm2 protocol = %v, want iterm", got)
+	}
+	t.Setenv("LC_TERMINAL", "")
+
 	t.Setenv("KITTY_WINDOW_ID", "1")
-	if !graphicsSupported() {
-		t.Error("kitty should be detected")
+	if got := detectImageProtocol(); got != imageProtocolKitty {
+		t.Errorf("kitty protocol = %v, want kitty", got)
 	}
 	t.Setenv("KITTY_WINDOW_ID", "")
 
 	t.Setenv("TMUX", "/tmp/tmux")
-	if graphicsSupported() {
-		t.Error("graphics should be disabled inside tmux")
+	if got := detectImageProtocol(); got != imageProtocolNone {
+		t.Errorf("tmux protocol = %v, want none", got)
 	}
 	t.Setenv("TMUX", "")
 
 	t.Setenv("TSP_GRAPHICS", "1")
-	if !graphicsSupported() {
-		t.Error("TSP_GRAPHICS=1 should force support")
+	if got := detectImageProtocol(); got != imageProtocolKitty {
+		t.Errorf("TSP_GRAPHICS=1 protocol = %v, want kitty fallback", got)
 	}
 	t.Setenv("TMUX", "/tmp/tmux")
-	if !graphicsSupported() {
-		t.Error("TSP_GRAPHICS=1 should override tmux detection")
+	if got := detectImageProtocol(); got != imageProtocolKitty {
+		t.Errorf("TSP_GRAPHICS=1 should override tmux, got %v", got)
 	}
 	t.Setenv("TSP_GRAPHICS", "0")
-	if graphicsSupported() {
-		t.Error("TSP_GRAPHICS=0 should force disable")
+	if got := detectImageProtocol(); got != imageProtocolNone {
+		t.Errorf("TSP_GRAPHICS=0 protocol = %v, want none", got)
 	}
 }
 
@@ -56,7 +67,7 @@ func TestWriteImageChunks(t *testing.T) {
 	plan := &imagePlan{png: payload, cols: 80, rows: 9}
 
 	var buf bytes.Buffer
-	writeImage(&buf, plan, 7)
+	writeKittyImage(&buf, plan, 7)
 	out := buf.String()
 
 	if !strings.HasPrefix(out, "\x1b_Ga=T,f=100,i=7,p=1,q=2,C=1,c=80,r=9,z=1,m=1;") {
@@ -101,9 +112,9 @@ func TestWriteImageChunks(t *testing.T) {
 	}
 }
 
-func TestImageEscapes(t *testing.T) {
+func TestKittyImageEscapes(t *testing.T) {
 	plan := &imagePlan{png: []byte("fake-png"), cols: 40, rows: 1}
-	esc := imageEscapes(plan)
+	esc := imageEscapes(imageProtocolKitty, plan)
 
 	for _, want := range []string{
 		"a=d,d=a",
@@ -120,5 +131,19 @@ func TestImageEscapes(t *testing.T) {
 	}
 	if !strings.HasSuffix(esc, "\x1b[40C") {
 		t.Errorf("imageEscapes() should advance the cursor past the image, got %q", esc[len(esc)-8:])
+	}
+}
+
+func TestItermImageEscapes(t *testing.T) {
+	plan := &imagePlan{png: []byte("fake-png"), cols: 40, rows: 1}
+	esc := imageEscapes(imageProtocolIterm, plan)
+
+	want := "\x1b[K\x1b]1337;File=inline=1;size=8;width=40;height=1;preserveAspectRatio=1:" +
+		base64.StdEncoding.EncodeToString(plan.png) + "\x07"
+	if esc != want {
+		t.Errorf("imageEscapes(iterm) = %q, want %q", esc, want)
+	}
+	if strings.Contains(esc, "a=T") {
+		t.Error("iTerm2 escapes should not use the Kitty protocol")
 	}
 }

@@ -46,7 +46,7 @@ type UI struct {
 
 	chosen string
 
-	graphics    bool
+	protocol    imageProtocol
 	images      map[string]imageResult
 	renderImage func(Family) imageResult
 }
@@ -289,7 +289,7 @@ func (m *UI) View() string {
 	if !m.ready {
 		return ""
 	}
-	return strings.Join(m.screen(m.graphics), "\n")
+	return strings.Join(m.screen(m.protocol != imageProtocolNone), "\n")
 }
 
 func (m *UI) screen(includeImage bool) []string {
@@ -357,7 +357,7 @@ func (m *UI) bodyRows(includeImage bool) ([]string, *imageArea) {
 			b.WriteString(padWidth(l, listWidth))
 			b.WriteString("  ")
 			if i == area.start {
-				b.WriteString(imageEscapes(&imagePlan{png: area.png, cols: area.cols, rows: area.rows}))
+				b.WriteString(imageEscapes(m.protocol, &imagePlan{png: area.png, cols: area.cols, rows: area.rows}))
 			}
 			b.WriteString("\x1b[0m")
 			rows = append(rows, b.String())
@@ -427,9 +427,11 @@ func (m *UI) previewView(width, height int, includeImage bool) ([]string, *image
 	}
 
 	if area == nil {
-		if includeImage {
+		if includeImage && m.protocol == imageProtocolKitty {
 			// Clear a placement left over from a font that cannot be
 			// rasterized, otherwise it would overlap the text fallback.
+			// iTerm2 images are grid characters, so repainting this row as
+			// text already removes them.
 			lines[0] = imageClearEscapes() + lines[0]
 		}
 		add(" " + ansi.Truncate(sampleText, width-2, "…"))

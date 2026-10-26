@@ -147,7 +147,7 @@ func TestShortPath(t *testing.T) {
 
 func TestUIGraphicsPreview(t *testing.T) {
 	m := newTestUI()
-	m.graphics = true
+	m.protocol = imageProtocolKitty
 	calls := 0
 	m.renderImage = func(Family) imageResult {
 		calls++
@@ -184,9 +184,35 @@ func TestUIGraphicsPreview(t *testing.T) {
 	}
 }
 
+func TestUIItermPreview(t *testing.T) {
+	m := newTestUI()
+	m.protocol = imageProtocolIterm
+	m.renderImage = func(Family) imageResult {
+		return imageResult{png: []byte("fake"), width: 800, height: 300}
+	}
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
+
+	view := m.View()
+	cols, _ := imageCells(imageResult{width: 800, height: 300}, m.previewWidth())
+	for _, want := range []string{
+		fmt.Sprintf("\x1b]1337;File=inline=1;size=4;width=%d;height=1;preserveAspectRatio=1:", cols),
+		"preview rendered from the selected font",
+	} {
+		if !strings.Contains(view, want) {
+			t.Errorf("view does not contain %q", want)
+		}
+	}
+	if strings.Contains(view, "a=T") {
+		t.Error("iTerm2 mode should not emit the Kitty protocol")
+	}
+	if strings.Contains(view, "abcdefghijklmnopqrstuvwxyz") {
+		t.Error("iTerm2 mode should not include the text sample")
+	}
+}
+
 func TestUIGraphicsFallback(t *testing.T) {
 	m := newTestUI()
-	m.graphics = true
+	m.protocol = imageProtocolKitty
 	m.renderImage = func(Family) imageResult {
 		return imageResult{err: errors.New("cannot rasterize")}
 	}

@@ -116,7 +116,7 @@ tsp fonts
 font="$(tsp fonts)"
 ```
 
-在支持 Kitty graphics 协议的终端（kitty、Ghostty、WezTerm）中，示例会用所选字体栅格化成图片并贴到右侧，是真实预览；图片背景透明，字形颜色会根据 `COLORFGBG` 适配明/暗主题，因此能融入面板而不会出现色块。其他终端（VS Code/Trae 终端、tmux）会退回用终端当前字体绘制的文本示例，并在界面中说明。`TSP_GRAPHICS=0` 可强制文本回退，`TSP_GRAPHICS=1` 可强制启用图形（便于测试）。
+在支持 Kitty graphics 协议的终端（kitty、Ghostty、WezTerm）或 iTerm2 inline image 协议的 iTerm2 中，示例会用所选字体栅格化成图片并贴到右侧，是真实预览；图片背景透明，字形颜色会根据 `COLORFGBG` 适配明/暗主题，因此能融入面板而不会出现色块。其他终端（VS Code/Trae 终端、tmux）会退回用终端当前字体绘制的文本示例，并在界面中说明。`TSP_GRAPHICS=0` 可强制文本回退，`TSP_GRAPHICS=1` 可强制启用图形（便于测试）。
 
 | 按键 | 动作 |
 | --- | --- |

@@ -121,7 +121,7 @@ The right pane shows the family name, its styles, a `preview` block with a singl
 font="$(tsp fonts)"
 ```
 
-In terminals that support the Kitty graphics protocol (kitty, Ghostty, WezTerm) the sample is rasterized from the selected font and placed in the pane, so it is a real preview. The image has a transparent background (glyph colors follow `COLORFGBG` for light/dark themes), so it blends into the pane instead of drawing a colored card. Elsewhere (VS Code/Trae terminals, tmux) the pane falls back to a text sample drawn with your terminal's current font and says so. `TSP_GRAPHICS=0` forces the text fallback; `TSP_GRAPHICS=1` forces graphics (useful for testing).
+In terminals that support the Kitty graphics protocol (kitty, Ghostty, WezTerm) or iTerm2's inline image protocol (iTerm2) the sample is rasterized from the selected font and placed in the pane, so it is a real preview. The image has a transparent background (glyph colors follow `COLORFGBG` for light/dark themes), so it blends into the pane instead of drawing a colored card. Elsewhere (VS Code/Trae terminals, tmux) the pane falls back to a text sample drawn with your terminal's current font and says so. `TSP_GRAPHICS=0` forces the text fallback; `TSP_GRAPHICS=1` forces graphics (useful for testing).
 
 | Key | Action |
 | --- | --- |
