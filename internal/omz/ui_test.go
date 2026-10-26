@@ -31,6 +31,23 @@ func typeText(m *UI, text string) {
 	}
 }
 
+func TestUIFilterIgnoresModifierKeys(t *testing.T) {
+	m := newTestUI(t)
+
+	// Windows reports bare modifier keys (Alt, Ctrl, the Windows key) as
+	// KeyRunes carrying a NUL rune.
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{0}})
+	if m.searching || m.query != "" {
+		t.Fatalf("modifier key opened the filter: searching=%v query=%q", m.searching, m.query)
+	}
+
+	m.searching = true
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{0}})
+	if m.query != "" {
+		t.Errorf("modifier key fed the filter: query=%q", m.query)
+	}
+}
+
 func TestUINavigation(t *testing.T) {
 	m := newTestUI(t)
 

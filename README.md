@@ -7,7 +7,7 @@ English | [简体中文](README.zh-CN.md)
 A collection of small tools for previewing terminal settings:
 
 - `tsp omz themes` — oh-my-zsh theme browser with a live prompt preview; `Enter` applies a theme via `omz theme set`
-- `tsp fonts` — installed font family browser with styles and a glyph sample; `Enter` prints the chosen family name
+- `tsp fonts` — installed monospaced font family browser with styles and a glyph sample; `Enter` prints the chosen family name
 
 ## Requirements
 
@@ -64,6 +64,15 @@ go build -o tsp .
 go install .
 ```
 
+On Windows, keep the `.exe` extension — PowerShell/CMD cannot run an executable
+without it:
+
+```powershell
+go build -o tsp.exe .
+# or install into %GOBIN%
+go install .
+```
+
 ## Usage
 
 ### Themes
@@ -109,19 +118,19 @@ Themes are loaded from `<zsh>/themes/*.zsh-theme` and from `*.zsh-theme` files u
 tsp fonts
 ```
 
-Lists every installed font family it can parse:
+Lists every installed monospaced font family it can parse; proportional faces are skipped:
 
 - macOS: `~/Library/Fonts`, `/Library/Fonts`, `/System/Library/Fonts` and its `Supplemental` directory
 - Linux: `~/.fonts`, `~/.local/share/fonts`, `/usr/local/share/fonts`, `/usr/share/fonts`
 - Windows: `%WINDIR%\Fonts`, `%LOCALAPPDATA%\Microsoft\Windows\Fonts`
 
-The right pane shows the family name, its styles, a `preview` block with a single ASCII glyph line (the same sample used by kitty's `choose-fonts`), and the PostScript name and source file. Characters the selected font does not provide are omitted; fonts without enough scalable ASCII coverage fall back to the text sample. `Enter` prints the selected family name to stdout, which makes it scriptable:
+The right pane shows the family name, its styles, a `preview` block with the ASCII glyph sample used by kitty's `choose-fonts` — wrapped onto as many lines as the pane width needs — and the PostScript name and source file. Characters the selected font does not provide are omitted; fonts without enough scalable ASCII coverage fall back to the text sample. `Enter` prints the selected family name to stdout, which makes it scriptable:
 
 ```bash
 font="$(tsp fonts)"
 ```
 
-In terminals that answer a graphics capability query — the Kitty graphics protocol (kitty, Ghostty, WezTerm and other libghostty-based terminals) or iTerm2's inline image protocol (iTerm2, VS Code with `terminal.integrated.enableImages`) — the sample is rasterized from the selected font and placed in the pane, so it is a real preview. The terminal is queried directly before the browser starts; environment variables back this up for terminals that do not answer the query (some VS Code-based terminals implement inline images without replying). The image has a transparent background and its glyph color follows the terminal's reported background (falling back to `COLORFGBG`), so it stays readable on light and dark themes instead of drawing a colored card. Elsewhere (other terminals, tmux) the pane falls back to a text sample drawn with your terminal's current font and says so. `TSP_GRAPHICS=0` forces the text fallback; `TSP_GRAPHICS=1` forces graphics (useful for testing).
+In terminals that answer a graphics capability query — the Kitty graphics protocol (kitty, Ghostty, WezTerm and other libghostty-based terminals) or iTerm2's inline image protocol (iTerm2, VS Code with `terminal.integrated.enableImages`) — the sample is rasterized from the selected font and placed in the pane, so it is a real preview. The terminal is queried directly before the browser starts; environment variables back this up for terminals that do not answer the query (some VS Code-based terminals implement inline images without replying). The image has a transparent background and its glyph color follows the terminal's reported background (falling back to `COLORFGBG`), so it stays readable on light and dark themes instead of drawing a colored card. Elsewhere (other terminals, tmux) the pane falls back to a text sample drawn with your terminal's current font and says so. On Windows, console programs reach the terminal through ConPTY, which normally swallows graphics escapes, so images only appear in terminals whose ConPTY forwards them — Otty does; WezTerm builds from before its ConPTY workarounds do not and fall back to the text sample. `TSP_GRAPHICS=1` forces graphics there for terminals that work around this (a recent WezTerm nightly, for example). `TSP_GRAPHICS=0` forces the text fallback.
 
 | Key | Action |
 | --- | --- |

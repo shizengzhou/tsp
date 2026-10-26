@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 )
 
@@ -23,6 +24,26 @@ type imagePlan struct {
 	cols, rows int
 }
 
+// graphicsReachable reports whether graphics escapes written by the program
+// reach the terminal. Console programs on Windows talk to the terminal through
+// ConPTY, which normally swallows them, so only terminals that ship a ConPTY
+// forwarding the escapes can show the preview (Otty does; WezTerm builds from
+// before its ConPTY workarounds do not). TSP_GRAPHICS=1 forces graphics
+// anywhere. It is a variable so tests can simulate platforms.
+var graphicsReachable = graphicsPassthrough
+
+// graphicsPassthrough reports whether the front-end terminal receives the
+// program's graphics escapes on this platform.
+func graphicsPassthrough() bool {
+	if runtime.GOOS != "windows" {
+		return true
+	}
+	// libghostty-based terminals (Otty and forks) forward the escapes through
+	// their bundled ConPTY.
+	program := strings.ToLower(os.Getenv("TERM_PROGRAM"))
+	return strings.Contains(program, "otty") || strings.Contains(program, "kitty") || strings.Contains(program, "ghostty")
+}
+
 // detectImageProtocol picks the graphics protocol for the current terminal.
 // TSP_GRAPHICS=1/0 overrides the detection.
 func detectImageProtocol() imageProtocol {
@@ -38,6 +59,9 @@ func detectImageProtocol() imageProtocol {
 
 	// Inside tmux the escapes reach tmux, not the outer terminal.
 	if os.Getenv("TMUX") != "" {
+		return imageProtocolNone
+	}
+	if !graphicsReachable() {
 		return imageProtocolNone
 	}
 	return detectTerminalProtocol()
@@ -67,10 +91,12 @@ func envImageProtocol() imageProtocol {
 		return imageProtocolIterm
 	}
 
-	// Kitty protocol: Kitty, Ghostty, WezTerm and forks. Applications that
-	// embed libghostty keep their own TERM_PROGRAM but still advertise
-	// TERM=xterm-ghostty, so the TERM and GHOSTTY_* checks below catch them.
-	if strings.Contains(program, "kitty") || strings.Contains(program, "ghostty") || strings.Contains(program, "wezterm") {
+	// Kitty protocol: Kitty, Ghostty, WezTerm, Otty and forks. Applications
+	// that embed libghostty keep their own TERM_PROGRAM (Otty uses "otty" and
+	// TERM=xterm-256color) or still advertise TERM=xterm-ghostty, so all of
+	// these checks lead to the same protocol.
+	if strings.Contains(program, "kitty") || strings.Contains(program, "ghostty") ||
+		strings.Contains(program, "wezterm") || strings.Contains(program, "otty") {
 		return imageProtocolKitty
 	}
 	if strings.EqualFold(os.Getenv("LC_TERMINAL"), "iTerm2") {

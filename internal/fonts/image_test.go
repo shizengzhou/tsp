@@ -12,24 +12,27 @@ func TestImageCells(t *testing.T) {
 		paneCols   int
 		cellAspect float64
 		wantCols   int
+		wantRows   int
 	}{
-		{imageResult{width: 1000, height: 200}, 80, 2, 10},
-		{imageResult{width: 1000, height: 200}, 80, 1.5, 8},
-		{imageResult{width: 1000, height: 200}, 80, 0, 10},
-		{imageResult{width: 100, height: 100}, 80, 2, 2},
-		{imageResult{width: 1000, height: 100}, 5, 2, 4},
-		{imageResult{width: 0, height: 100}, 80, 2, 0},
+		{imageResult{width: 1000, height: 200}, 80, 2, 10, 1},
+		{imageResult{width: 1000, height: 200}, 80, 1.5, 8, 1},
+		{imageResult{width: 1000, height: 200}, 80, 0, 14, 1},
+		{imageResult{width: 100, height: 100}, 80, 2, 2, 1},
+		{imageResult{width: 1000, height: 100}, 5, 2, 4, 1},
+		{imageResult{width: 0, height: 100}, 80, 2, 0, 0},
+		// A two-line sample is two rows tall, so it needs twice the columns.
+		{imageResult{width: 1000, height: 200, lines: 2}, 80, 2, 20, 2},
 	}
 	for _, tc := range cases {
 		cols, rows := imageCells(tc.img, tc.paneCols, tc.cellAspect)
-		if cols != tc.wantCols || (rows != 0 && rows != 1) {
-			t.Errorf("imageCells(%+v, %d, %v) = %d,%d; want cols=%d rows<=1", tc.img, tc.paneCols, tc.cellAspect, cols, rows, tc.wantCols)
+		if cols != tc.wantCols || rows != tc.wantRows {
+			t.Errorf("imageCells(%+v, %d, %v) = %d,%d; want %d,%d", tc.img, tc.paneCols, tc.cellAspect, cols, rows, tc.wantCols, tc.wantRows)
 		}
 	}
 }
 
 func TestRenderFamilyImageNoPath(t *testing.T) {
-	result := renderFamilyImage(Family{Name: "Missing"}, lightPreviewText)
+	result := renderFamilyImage(Family{Name: "Missing"}, lightPreviewText, 80, defaultCellAspect)
 	if result.err == nil {
 		t.Fatal("renderFamilyImage() error = nil, want error")
 	}
@@ -64,7 +67,7 @@ func TestRenderNonASCIITFont(t *testing.T) {
 			continue
 		}
 		checked++
-		result := renderFamilyImage(family, lightPreviewText)
+		result := renderFamilyImage(family, lightPreviewText, 80, defaultCellAspect)
 		if result.err == nil {
 			t.Errorf("%s should be skipped (it would render .notdef boxes)", family.Name)
 		}
@@ -90,7 +93,7 @@ func TestRenderFamilyImage(t *testing.T) {
 		if family.Primary().Path == "" {
 			continue
 		}
-		candidate := renderFamilyImage(family, lightPreviewText)
+		candidate := renderFamilyImage(family, lightPreviewText, 80, defaultCellAspect)
 		if candidate.err == nil {
 			result = candidate
 			rendered = family

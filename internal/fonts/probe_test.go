@@ -9,6 +9,10 @@ func TestDetectImageProtocolPrefersProbe(t *testing.T) {
 	originalProbe := terminalProbe
 	t.Cleanup(func() { terminalProbe = originalProbe })
 
+	originalGraphics := graphicsReachable
+	graphicsReachable = func() bool { return true }
+	t.Cleanup(func() { graphicsReachable = originalGraphics })
+
 	t.Setenv("TSP_GRAPHICS", "")
 	t.Setenv("TMUX", "")
 	// The environment claims iTerm2 support; only the probe should decide.

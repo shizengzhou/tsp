@@ -1,8 +1,12 @@
 package fonts
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"golang.org/x/image/font/sfnt"
 )
 
 func TestGroupFamilies(t *testing.T) {
@@ -97,6 +101,71 @@ func TestFacesFromSystemFont(t *testing.T) {
 	}
 	if !strings.EqualFold(faces[0].Family, face.Family) {
 		t.Errorf("parsed family = %q, want %q", faces[0].Family, face.Family)
+	}
+}
+
+func TestDiscoverMonospacedOnly(t *testing.T) {
+	families, err := Discover()
+	if err != nil {
+		t.Skipf("no fonts available: %v", err)
+	}
+
+	known := map[string]bool{}
+	for _, family := range families {
+		for _, proportional := range []string{"Arial", "Helvetica", "Times New Roman", "Calibri", "Segoe UI"} {
+			if strings.EqualFold(family.Name, proportional) {
+				t.Errorf("proportional family %q was listed", family.Name)
+			}
+		}
+		known[strings.ToLower(family.Name)] = true
+	}
+
+	monospaced := []string{"consolas", "courier new", "cascadia mono", "menlo", "dejavu sans mono", "liberation mono", "sf mono"}
+	found := false
+	for _, name := range monospaced {
+		if known[name] {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("no well-known monospaced family in %d families", len(families))
+	}
+}
+
+func TestIsMonospace(t *testing.T) {
+	windir := os.Getenv("WINDIR")
+	if windir == "" {
+		t.Skip("not a Windows font directory layout")
+	}
+	cases := map[string]bool{
+		filepath.Join(windir, "Fonts", "consola.ttf"): true,
+		filepath.Join(windir, "Fonts", "arial.ttf"):   false,
+	}
+	checked := 0
+	for path, want := range cases {
+		if _, err := os.Stat(path); err != nil {
+			continue
+		}
+		file, err := os.Open(path)
+		if err != nil {
+			t.Fatalf("open %q: %v", path, err)
+		}
+		parsed, err := sfnt.ParseReaderAt(file)
+		if err != nil {
+			file.Close()
+			t.Fatalf("parse %q: %v", path, err)
+		}
+		// The font reads glyph data lazily, so it needs the file to stay open.
+		got := isMonospace(parsed)
+		file.Close()
+		if got != want {
+			t.Errorf("isMonospace(%q) = %v, want %v", filepath.Base(path), got, want)
+		}
+		checked++
+	}
+	if checked == 0 {
+		t.Skip("test fonts not installed")
 	}
 }
 

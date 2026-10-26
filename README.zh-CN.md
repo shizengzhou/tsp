@@ -7,7 +7,7 @@
 终端配置的预览小工具集合：
 
 - `tsp omz themes` — oh-my-zsh 主题浏览器，右侧实时预览提示符；回车通过 `omz theme set` 应用主题
-- `tsp fonts` — 已安装字体家族浏览器，右侧显示样式与字形示例；回车把所选家族名输出到 stdout
+- `tsp fonts` — 已安装等宽字体家族浏览器，右侧显示样式与字形示例；回车把所选家族名输出到 stdout
 
 ## 环境要求
 
@@ -59,6 +59,14 @@ go build -o tsp .
 go install .
 ```
 
+Windows 上要保留 `.exe` 后缀，否则 PowerShell/CMD 无法执行该文件：
+
+```powershell
+go build -o tsp.exe .
+# 或安装到 %GOBIN%
+go install .
+```
+
 ## 使用
 
 ### 主题
@@ -104,19 +112,19 @@ tsp omz themes --zsh ~/.oh-my-zsh --custom ~/.config/zsh/custom
 tsp fonts
 ```
 
-左侧列出所有能解析的已安装字体家族：
+左侧列出所有能解析的已安装等宽字体家族，比例字体会被跳过：
 
 - macOS：`~/Library/Fonts`、`/Library/Fonts`、`/System/Library/Fonts` 及其 `Supplemental` 目录
 - Linux：`~/.fonts`、`~/.local/share/fonts`、`/usr/local/share/fonts`、`/usr/share/fonts`
 - Windows：`%WINDIR%\Fonts`、`%LOCALAPPDATA%\Microsoft\Windows\Fonts`
 
-右侧显示家族名、样式、带单行 ASCII 字形示例（与 kitty `choose-fonts` 相同）的 `preview` 区块，以及 PostScript 名和源文件。所选字体缺失的字符会被略去；ASCII 覆盖不足或没有可缩放轮廓的字体会退回文本示例。`Enter` 会把选中的家族名打印到 stdout，方便脚本读取：
+右侧显示家族名、样式、带 ASCII 字形示例（与 kitty `choose-fonts` 相同，按面板宽度自动换成多行）的 `preview` 区块，以及 PostScript 名和源文件。所选字体缺失的字符会被略去；ASCII 覆盖不足或没有可缩放轮廓的字体会退回文本示例。`Enter` 会把选中的家族名打印到 stdout，方便脚本读取：
 
 ```bash
 font="$(tsp fonts)"
 ```
 
-在能响应图形能力查询的终端中——Kitty graphics 协议（kitty、Ghostty、WezTerm 以及其他基于 libghostty 的终端）或 iTerm2 inline image 协议（iTerm2、开启 `terminal.integrated.enableImages` 的 VS Code）——示例会用所选字体栅格化成图片并贴到右侧，是真实预览。启动浏览器前会直接向终端查询能力；对不响应查询的终端（部分 VS Code 系终端只实现了 inline image 而不响应查询）再用环境变量兜底。图片背景透明，字形颜色会根据终端上报的背景色（无法获取时回退 `COLORFGBG`）自动选择深色或浅色，因此在明/暗主题下都清晰可读，也不会出现色块。其他终端与 tmux 会退回用终端当前字体绘制的文本示例，并在界面中说明。`TSP_GRAPHICS=0` 可强制文本回退，`TSP_GRAPHICS=1` 可强制启用图形（便于测试）。
+在能响应图形能力查询的终端中——Kitty graphics 协议（kitty、Ghostty、WezTerm 以及其他基于 libghostty 的终端）或 iTerm2 inline image 协议（iTerm2、开启 `terminal.integrated.enableImages` 的 VS Code）——示例会用所选字体栅格化成图片并贴到右侧，是真实预览。启动浏览器前会直接向终端查询能力；对不响应查询的终端（部分 VS Code 系终端只实现了 inline image 而不响应查询）再用环境变量兜底。图片背景透明，字形颜色会根据终端上报的背景色（无法获取时回退 `COLORFGBG`）自动选择深色或浅色，因此在明/暗主题下都清晰可读，也不会出现色块。其他终端与 tmux 会退回用终端当前字体绘制的文本示例，并在界面中说明。Windows 上，控制台程序的输出要经过 ConPTY，而 ConPTY 通常会丢弃图形转义序列，因此只有自带 ConPTY 并会转发这些序列的终端才能显示图片预览（Otty 可以；尚未处理 ConPTY 的旧版 WezTerm 会退回文本示例）。对这类终端可用 `TSP_GRAPHICS=1` 强制启用图形。`TSP_GRAPHICS=0` 可强制文本回退。
 
 | 按键 | 动作 |
 | --- | --- |

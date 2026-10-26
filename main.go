@@ -13,7 +13,7 @@ const usage = `tsp is a collection of small terminal tools.
 
 Usage:
   tsp omz themes [flags]    browse and preview oh-my-zsh themes
-  tsp fonts                 browse installed fonts and print the chosen family
+  tsp fonts                 browse installed monospaced fonts and print the chosen family
 
 Run "tsp omz themes -h" for the flags of a command.
 `
@@ -36,8 +36,9 @@ Keys:
 const fontsUsage = `Usage:
   tsp fonts
 
-Browse installed font families: the family list is on the left, styles and a
-glyph sample on the right. Enter prints the chosen family name to stdout.
+Browse installed monospaced font families: the family list is on the left,
+styles and a glyph sample on the right. Enter prints the chosen family name to
+stdout.
 
 Keys:
   ↑/↓ j/k   move        /   filter       ⏎  choose & print

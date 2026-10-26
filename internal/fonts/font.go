@@ -10,7 +10,9 @@ import (
 	"sort"
 	"strings"
 
+	"golang.org/x/image/font"
 	"golang.org/x/image/font/sfnt"
+	"golang.org/x/image/math/fixed"
 )
 
 // Face is a single font face (one style of a family).
@@ -92,7 +94,8 @@ func DefaultDirs() []string {
 }
 
 // Discover scans font directories (DefaultDirs when none are given) and groups
-// faces into families. Unreadable or invalid files are skipped.
+// monospaced faces into families. Unreadable, invalid and proportional files
+// are skipped.
 func Discover(dirs ...string) ([]Family, error) {
 	if len(dirs) == 0 {
 		dirs = DefaultDirs()
@@ -129,7 +132,8 @@ func Discover(dirs ...string) ([]Family, error) {
 	return families, nil
 }
 
-// FacesFromFile parses one font file (including font collections).
+// FacesFromFile parses one font file (including font collections), keeping the
+// monospaced faces.
 func FacesFromFile(path string) ([]Face, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -194,6 +198,11 @@ func faceFromFont(f *sfnt.Font, path string, index int) (Face, bool) {
 	if postScript == "" {
 		postScript = full
 	}
+	// The browser lists fonts for a terminal grid, so proportional faces are
+	// dropped rather than shown with a preview that cannot match the pane.
+	if !isMonospace(f) {
+		return Face{}, false
+	}
 
 	return Face{
 		Family:     family,
@@ -212,6 +221,37 @@ func fontName(f *sfnt.Font, id sfnt.NameID) string {
 		return ""
 	}
 	return strings.TrimSpace(name)
+}
+
+// monospaceProbe holds ASCII characters that are narrow, wide or round; a
+// proportional face gives them different advances while a monospaced face does
+// not.
+const monospaceProbe = "iIlmwMW0O@.,:|!1"
+
+// isMonospace reports whether the face advances the probe characters by one
+// uniform width, which is what a terminal grid needs.
+func isMonospace(f *sfnt.Font) bool {
+	var buf sfnt.Buffer
+	ppem := fixed.I(16)
+	var advance fixed.Int26_6
+	measured := 0
+	for _, r := range monospaceProbe {
+		index, err := f.GlyphIndex(&buf, r)
+		if err != nil || index == 0 {
+			continue
+		}
+		got, err := f.GlyphAdvance(&buf, index, ppem, font.HintingNone)
+		if err != nil {
+			continue
+		}
+		if measured == 0 {
+			advance = got
+		} else if got != advance {
+			return false
+		}
+		measured++
+	}
+	return measured >= 4
 }
 
 // Group merges faces into families, dropping hidden families (".SF NS", etc.),

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -163,10 +164,10 @@ func (m *UI) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	default:
 		// Typing (or pasting) outside search starts a filter, which also
 		// handles multi-rune key messages arriving in one batch.
-		if msg.Type != tea.KeyRunes || len(msg.Runes) == 0 {
+		if msg.Type != tea.KeyRunes {
 			return m, nil
 		}
-		text := strings.TrimPrefix(string(msg.Runes), "/")
+		text := strings.TrimPrefix(printableText(msg.Runes), "/")
 		if text == "" {
 			return m, nil
 		}
@@ -207,15 +208,31 @@ func (m *UI) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cursor = 0
 		m.offset = 0
 	default:
-		if msg.Type == tea.KeyRunes {
-			m.query += string(msg.Runes)
-			m.cursor = 0
-			m.offset = 0
-		} else {
+		if msg.Type != tea.KeyRunes {
 			return m, nil
 		}
+		text := printableText(msg.Runes)
+		if text == "" {
+			return m, nil
+		}
+		m.query += text
+		m.cursor = 0
+		m.offset = 0
 	}
 	return m, m.refresh()
+}
+
+// printableText returns the typed text of a key message. Windows reports bare
+// modifier keys (Alt, Ctrl, the Windows key) as KeyRunes carrying a NUL rune,
+// which must not open or feed the filter.
+func printableText(runes []rune) string {
+	var b strings.Builder
+	for _, r := range runes {
+		if unicode.IsPrint(r) {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func (m *UI) applySelected() tea.Cmd {

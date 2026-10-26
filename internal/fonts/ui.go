@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -125,10 +126,10 @@ func (m *UI) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		return m.choose()
 	default:
-		if msg.Type != tea.KeyRunes || len(msg.Runes) == 0 {
+		if msg.Type != tea.KeyRunes {
 			return m, nil
 		}
-		text := strings.TrimPrefix(string(msg.Runes), "/")
+		text := strings.TrimPrefix(printableText(msg.Runes), "/")
 		if text == "" {
 			return m, nil
 		}
@@ -168,13 +169,31 @@ func (m *UI) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.cursor = 0
 		m.offset = 0
 	default:
-		if msg.Type == tea.KeyRunes {
-			m.query += string(msg.Runes)
-			m.cursor = 0
-			m.offset = 0
+		if msg.Type != tea.KeyRunes {
+			return m, nil
 		}
+		text := printableText(msg.Runes)
+		if text == "" {
+			return m, nil
+		}
+		m.query += text
+		m.cursor = 0
+		m.offset = 0
 	}
 	return m, nil
+}
+
+// printableText returns the typed text of a key message. Windows reports bare
+// modifier keys (Alt, Ctrl, the Windows key) as KeyRunes carrying a NUL rune,
+// which must not open or feed the filter.
+func printableText(runes []rune) string {
+	var b strings.Builder
+	for _, r := range runes {
+		if unicode.IsPrint(r) {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func (m *UI) choose() (tea.Model, tea.Cmd) {
@@ -308,7 +327,9 @@ func (m *UI) screen(includeImage bool) []string {
 
 func (m *UI) imageFor(family Family) imageResult {
 	face := family.Primary()
-	key := fmt.Sprintf("%s\x00%s\x00%d", family.Name, face.Path, face.Index)
+	// The sample is wrapped to the preview pane, so the width is part of the
+	// cache key: a resize can change the number of lines.
+	key := fmt.Sprintf("%s\x00%s\x00%d\x00%d", family.Name, face.Path, face.Index, m.previewWidth())
 	if result, ok := m.images[key]; ok {
 		return result
 	}
@@ -316,7 +337,7 @@ func (m *UI) imageFor(family Family) imageResult {
 	if m.renderImage != nil {
 		result = m.renderImage(family)
 	} else {
-		result = renderFamilyImage(family, m.foreground)
+		result = renderFamilyImage(family, m.foreground, m.previewWidth()-1, m.cellAspect)
 	}
 	m.images[key] = result
 	return result
@@ -421,12 +442,16 @@ func (m *UI) previewView(width, height int, includeImage bool) ([]string, *image
 	var area *imageArea
 	if includeImage {
 		img := m.imageFor(family)
-		if img.err == nil && img.width > 0 && img.height > 0 {
-			// Reserve room for the post-image metadata block.
-			if height-len(lines)-7 >= 1 {
-				cols, rows := imageCells(img, width, m.cellAspect)
-				area = &imageArea{start: len(lines), rows: rows, cols: cols, png: img.png}
-				add("")
+		if img.err == nil {
+			cols, rows := imageCells(img, width, m.cellAspect)
+			if cols > 0 && rows > 0 {
+				// Reserve room for the image and the metadata block below it.
+				if height-len(lines)-7 >= rows {
+					area = &imageArea{start: len(lines), rows: rows, cols: cols, png: img.png}
+					for i := 0; i < rows; i++ {
+						add("")
+					}
+				}
 			}
 		}
 	}

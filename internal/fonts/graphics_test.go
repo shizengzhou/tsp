@@ -13,6 +13,12 @@ func TestDetectImageProtocol(t *testing.T) {
 	terminalProbe = func() (imageProtocol, bool) { return imageProtocolNone, false }
 	t.Cleanup(func() { terminalProbe = originalProbe })
 
+	// The host platform decides whether graphics escapes reach the terminal;
+	// pretend they do so the protocol rules can be checked everywhere.
+	originalGraphics := graphicsReachable
+	graphicsReachable = func() bool { return true }
+	t.Cleanup(func() { graphicsReachable = originalGraphics })
+
 	t.Setenv("TSP_GRAPHICS", "")
 	t.Setenv("TMUX", "")
 	t.Setenv("KITTY_WINDOW_ID", "")
@@ -35,6 +41,12 @@ func TestDetectImageProtocol(t *testing.T) {
 	t.Setenv("TERM_PROGRAM", "ghostty")
 	if got := detectImageProtocol(); got != imageProtocolKitty {
 		t.Errorf("ghostty protocol = %v, want kitty", got)
+	}
+	// Otty is libghostty-based but keeps TERM=xterm-256color, so only
+	// TERM_PROGRAM identifies it.
+	t.Setenv("TERM_PROGRAM", "otty")
+	if got := detectImageProtocol(); got != imageProtocolKitty {
+		t.Errorf("otty protocol = %v, want kitty", got)
 	}
 	// Terminals that embed libghostty keep their own TERM_PROGRAM but still
 	// run with Ghostty's TERM.
@@ -90,6 +102,19 @@ func TestDetectImageProtocol(t *testing.T) {
 	t.Setenv("TSP_GRAPHICS", "0")
 	if got := detectImageProtocol(); got != imageProtocolNone {
 		t.Errorf("TSP_GRAPHICS=0 protocol = %v, want none", got)
+	}
+
+	// ConPTY normally swallows graphics escapes, so the platform check can
+	// force the text sample even in a terminal that supports images.
+	graphicsReachable = func() bool { return false }
+	t.Setenv("TSP_GRAPHICS", "")
+	t.Setenv("TERM_PROGRAM", "WezTerm")
+	if got := detectImageProtocol(); got != imageProtocolNone {
+		t.Errorf("ConPTY platform protocol = %v, want none", got)
+	}
+	t.Setenv("TSP_GRAPHICS", "1")
+	if got := detectImageProtocol(); got != imageProtocolKitty {
+		t.Errorf("TSP_GRAPHICS=1 should override the platform, got %v", got)
 	}
 }
 
