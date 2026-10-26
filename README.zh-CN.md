@@ -7,12 +7,14 @@
 终端配置的预览小工具集合：
 
 - `tsp omz themes` — oh-my-zsh 主题浏览器，右侧实时预览提示符；回车通过 `omz theme set` 应用主题
+- `tsp omp themes` — oh-my-posh 主题浏览器，右侧实时预览提示符；回车改写 shell profile 中的 `oh-my-posh init` 行
 - `tsp fonts` — 已安装等宽字体家族浏览器，右侧显示样式与字形示例；回车把所选家族名输出到 stdout
 
 ## 环境要求
 
 - Go 1.27.3+（从源码构建）
 - `tsp omz themes`：`zsh` 与 oh-my-zsh（默认读取 `~/.oh-my-zsh`）
+- `tsp omp themes`：`oh-my-posh` 在 `PATH` 中（主题来自 `$POSH_THEMES_PATH` 与安装器目录，含 Microsoft Store 包）
 - `tsp fonts`：除二进制外无额外依赖
 
 ## 安装
@@ -106,6 +108,44 @@ tsp omz themes --zsh ~/.oh-my-zsh --custom ~/.config/zsh/custom
 
 `Enter` 会改写 `~/.zshrc` 中的 `ZSH_THEME` 行，并生成 `.zshrc.bck` 备份；需要重新打开 zsh（或 `source ~/.zshrc`）后生效。
 
+### oh-my-posh 主题
+
+```bash
+tsp omp themes
+```
+
+指定主题目录或其它 shell：
+
+```bash
+tsp omp themes --themes ~/.config/oh-my-posh/themes --shell zsh
+```
+
+### 参数
+
+| 参数 | 说明 | 默认值 |
+| --- | --- | --- |
+| `--themes DIR` | 主题目录 | `$POSH_THEMES_PATH`、安装器目录与 Microsoft Store 包 |
+| `--shell NAME` | 预览并写入配置的 shell | Windows 为 `pwsh`，其余为 `zsh` |
+
+主题来自主题目录下的 `*.omp.json` 与 `*.json`。内嵌在 oh-my-posh 二进制里的 Store 版主题只按名字列出、也按名字引用，这样升级 oh-my-posh 后 profile 仍然有效。
+
+预览由真实的 `oh-my-posh print` 渲染：使用临时 home 与一个带未提交改动的 git 仓库，因此会同时展示「仓库」和「普通目录」两种场景。预览按主题名与宽度缓存，选中时渲染，最多 3 个 oh-my-posh 进程并发，单次渲染超时 5 秒。
+
+### 快捷键
+
+| 按键 | 动作 |
+| --- | --- |
+| `↑` / `↓`、`j` / `k` | 移动选择 |
+| `PgUp` / `PgDn` | 翻页 |
+| `g` / `G`、`Home` / `End` | 跳到首尾 |
+| 直接输入 或 `/` | 按名称过滤（大小写不敏感） |
+| `Esc` | 清空过滤（并退出输入状态） |
+| `Enter` | 把当前主题写入 shell profile |
+| `r` | 清除预览缓存并重新渲染 |
+| `q`、`Ctrl+C` | 退出 |
+
+`Enter` 会改写 profile 中的 `oh-my-posh init` 行（插入或替换 `--config <主题>`），并生成 `<profile>.bck` 备份；需要重新打开 shell 后生效。
+
 ### 字体
 
 ```bash
@@ -150,11 +190,12 @@ font="$(tsp fonts)"
 
 ## 其它行为
 
-- 两个浏览器都必须在交互式终端中运行；输出被管道接走时会报错
+- 所有浏览器都必须在交互式终端中运行；输出被管道接走时会报错
 - `tsp omz themes` 在未安装 oh-my-zsh（或 `<zsh>/themes` 为空）时报错并以退出码 1 结束，可用 `--zsh` 指定实际路径
+- `tsp omp themes` 在 `oh-my-posh` 不在 `PATH`、或找不到任何主题时报错并以退出码 1 结束，可用 `--themes` 指定实际目录
 - 自定义目录不存在不影响使用，只是 Custom 页为空
 - 主题预览是静态快照：依赖外部工具或运行时的内容（virtualenv、kube 上下文、时间等）可能显示为空或旧值，按 `r` 可重新渲染
-- 设置主题只改写 `.zshrc`，不会影响当前已经打开的 shell
+- 设置主题只改写 `.zshrc` 或 shell profile，不会影响当前已经打开的 shell
 - `tsp fonts` 用 `q` 退出时不会输出任何内容；只有 `Enter` 会打印家族名
 - 字体示例使用 `golang.org/x/image` 栅格化，不会应用连字、样式集等 OpenType 特性
 
@@ -178,6 +219,11 @@ internal/omz/preview.go 主题预览渲染器、临时 HOME、结果缓存
 internal/omz/ui.go      主题浏览器界面
 internal/omz/set.go     调用 omz theme set 应用主题
 internal/omz/run.go     主题入口与终端检查
+internal/omp/theme.go   oh-my-posh 主题发现（含 Store 包目录）
+internal/omp/preview.go oh-my-posh 主题预览渲染器、临时 HOME、结果缓存
+internal/omp/ui.go      oh-my-posh 主题浏览器界面
+internal/omp/set.go     改写 shell profile 中的 init 行
+internal/omp/run.go     oh-my-posh 主题入口与终端检查
 internal/fonts/font.go  已安装字体发现与家族分组
 internal/fonts/ui.go    字体浏览器界面
 internal/fonts/image.go 将字体示例栅格化为 PNG

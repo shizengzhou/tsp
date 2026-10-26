@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/shizengzhou/tsp/internal/fonts"
+	"github.com/shizengzhou/tsp/internal/omp"
 	"github.com/shizengzhou/tsp/internal/omz"
 )
 
@@ -13,9 +14,10 @@ const usage = `tsp is a collection of small terminal tools.
 
 Usage:
   tsp omz themes [flags]    browse and preview oh-my-zsh themes
+  tsp omp themes [flags]    browse and preview oh-my-posh themes
   tsp fonts                 browse installed monospaced fonts and print the chosen family
 
-Run "tsp omz themes -h" for the flags of a command.
+Run "tsp <command> -h" for the flags of a command.
 `
 
 const omzUsage = `Usage:
@@ -31,6 +33,23 @@ Flags:
 Keys:
   ↑/↓ j/k   move        /   filter       tab  switch All/Custom
   ⏎        set theme   r   re-render     q    quit
+`
+
+const ompUsage = `Usage:
+  tsp omp themes [flags]
+
+Browse oh-my-posh themes: the list is on the left, a live prompt preview on
+the right. Enter rewrites the "oh-my-posh init" line of your shell profile so
+it loads the theme (a .bck backup of the profile is kept).
+
+Flags:
+  --themes DIR   theme directory (default $POSH_THEMES_PATH and the installer
+                 locations, including the Microsoft Store package)
+  --shell NAME   shell to render and configure (default pwsh on Windows, zsh elsewhere)
+
+Keys:
+  ↑/↓ j/k   move        /   filter       ⏎  apply theme
+  r         re-render   q   quit
 `
 
 const fontsUsage = `Usage:
@@ -67,6 +86,8 @@ func run(args []string) error {
 		return nil
 	case "omz":
 		return runOmz(args[1:])
+	case "omp":
+		return runOmp(args[1:])
 	case "fonts":
 		return runFonts(args[1:])
 	default:
@@ -113,5 +134,34 @@ func runOmz(args []string) error {
 		return omz.RunThemes(opts)
 	default:
 		return fmt.Errorf("unknown omz command %q\n\n%s", args[0], omzUsage)
+	}
+}
+
+func runOmp(args []string) error {
+	if len(args) == 0 {
+		fmt.Print(ompUsage)
+		return nil
+	}
+
+	switch args[0] {
+	case "-h", "--help", "help":
+		fmt.Print(ompUsage)
+		return nil
+	case "themes":
+		opts := omp.Options{}
+		fs := flag.NewFlagSet("tsp omp themes", flag.ContinueOnError)
+		fs.SetOutput(os.Stderr)
+		fs.StringVar(&opts.ThemesDir, "themes", "", "")
+		fs.StringVar(&opts.Shell, "shell", "", "")
+		fs.Usage = func() { fmt.Print(ompUsage) }
+		if err := fs.Parse(args[1:]); err != nil {
+			return err
+		}
+		if fs.NArg() > 0 {
+			return fmt.Errorf("unexpected argument %q", fs.Arg(0))
+		}
+		return omp.RunThemes(opts)
+	default:
+		return fmt.Errorf("unknown omp command %q\n\n%s", args[0], ompUsage)
 	}
 }

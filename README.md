@@ -7,12 +7,14 @@ English | [简体中文](README.zh-CN.md)
 A collection of small tools for previewing terminal settings:
 
 - `tsp omz themes` — oh-my-zsh theme browser with a live prompt preview; `Enter` applies a theme via `omz theme set`
+- `tsp omp themes` — oh-my-posh theme browser with a live prompt preview; `Enter` rewrites the `oh-my-posh init` line of your shell profile
 - `tsp fonts` — installed monospaced font family browser with styles and a glyph sample; `Enter` prints the chosen family name
 
 ## Requirements
 
 - Go 1.27.3+ (to build from source)
 - `tsp omz themes`: `zsh` and oh-my-zsh (read from `~/.oh-my-zsh` by default)
+- `tsp omp themes`: `oh-my-posh` on `PATH` (themes come from `$POSH_THEMES_PATH` and the installer locations, including the Microsoft Store package)
 - `tsp fonts`: nothing beyond the binary
 
 ## Install
@@ -112,6 +114,44 @@ Themes are loaded from `<zsh>/themes/*.zsh-theme` and from `*.zsh-theme` files u
 
 `Enter` rewrites the `ZSH_THEME` line in `~/.zshrc` and creates a `.zshrc.bck` backup. Open a new zsh (or run `source ~/.zshrc`) for the change to take effect.
 
+### oh-my-posh themes
+
+```bash
+tsp omp themes
+```
+
+With an explicit theme directory or a different shell:
+
+```bash
+tsp omp themes --themes ~/.config/oh-my-posh/themes --shell zsh
+```
+
+### Flags
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--themes DIR` | theme directory | `$POSH_THEMES_PATH`, the installer locations, and the Microsoft Store package |
+| `--shell NAME` | shell to render for and configure | `pwsh` on Windows, `zsh` elsewhere |
+
+Themes are loaded from `*.omp.json` and `*.json` files in the theme directory. Themes shipped inside the oh-my-posh binary (the Microsoft Store package) are listed by name and referenced by name, so the profile keeps working after an oh-my-posh update.
+
+Previews are rendered by a real `oh-my-posh print` run against a temporary home with a dirty git repository, so both a repository and a plain-directory scene are shown. Previews are cached per theme and width, and rendered on selection, with at most 3 oh-my-posh processes running concurrently and a 5-second timeout per render.
+
+### Key bindings
+
+| Key | Action |
+| --- | --- |
+| `Up` / `Down`, `j` / `k` | Move selection |
+| `PgUp` / `PgDn` | Page up / down |
+| `g` / `G`, `Home` / `End` | Jump to first / last |
+| Start typing, or `/` | Filter by name (case-insensitive) |
+| `Esc` | Clear the filter (and leave input mode) |
+| `Enter` | Apply the selected theme to the shell profile |
+| `r` | Clear the preview cache and render again |
+| `q`, `Ctrl+C` | Quit |
+
+`Enter` rewrites the `oh-my-posh init` line of the profile (`--config <theme>` is added or replaced) and creates a `<profile>.bck` backup. Open a new shell for the change to take effect.
+
 ### Fonts
 
 ```bash
@@ -156,11 +196,12 @@ Previews are cached per theme and width, and are rendered on selection. At most 
 
 ## Other behavior
 
-- Both browsers must run in an interactive terminal; piped output fails with an error.
+- All browsers must run in an interactive terminal; piped output fails with an error.
 - `tsp omz themes` without oh-my-zsh (or when `<zsh>/themes` is empty) exits with status 1 and a hint to pass `--zsh`.
+- `tsp omp themes` without `oh-my-posh` on `PATH`, or when no theme is found, exits with status 1 and a hint to pass `--themes`.
 - A missing custom directory is fine; the Custom tab is simply empty.
 - Theme previews are static snapshots: content that depends on external tools or runtime state (virtualenv, kube context, clock) may be empty or stale; press `r` to render again.
-- Setting a theme only rewrites `.zshrc`; it does not affect shells that are already running.
+- Setting a theme only rewrites `.zshrc` or the shell profile; it does not affect shells that are already running.
 - `tsp fonts` prints nothing when you quit with `q`; only `Enter` emits the family name.
 - Font samples are rasterized with `golang.org/x/image`; OpenType shaping features such as ligatures and stylistic sets are not applied.
 
@@ -184,6 +225,11 @@ internal/omz/preview.go theme preview renderer, temporary HOME, cache
 internal/omz/ui.go      theme browser interface
 internal/omz/set.go     applies themes via omz theme set
 internal/omz/run.go     themes entry point and terminal check
+internal/omp/theme.go   oh-my-posh theme discovery (incl. the Store package)
+internal/omp/preview.go oh-my-posh preview renderer, temporary HOME, cache
+internal/omp/ui.go      oh-my-posh theme browser interface
+internal/omp/set.go     rewrites the init line of the shell profile
+internal/omp/run.go     oh-my-posh entry point and terminal check
 internal/fonts/font.go  installed font discovery and family grouping
 internal/fonts/ui.go    font browser interface
 internal/fonts/image.go rasterizes font samples into PNG
