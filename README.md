@@ -48,9 +48,11 @@ irm https://raw.githubusercontent.com/shizengzhou/tsp/main/install.ps1 -OutFile 
 .\install.ps1 -Version v0.1.0 -InstallDir C:\Tools
 ```
 
-The script downloads the Windows zip, verifies `checksums.txt`, and installs
-`tsp.exe` into `%USERPROFILE%\.local\bin`. It works with Windows PowerShell 5.1+
-and PowerShell 7.
+The script downloads the Windows zip, verifies `checksums.txt`, installs
+`tsp.exe` into `%USERPROFILE%\.local\bin`, and appends that directory to your
+user `Path` (and to the PATH of the current session), so `tsp` works in new
+terminals without signing out. It works with Windows PowerShell 5.1+ and
+PowerShell 7.
 
 > `tsp` still needs `zsh` and oh-my-zsh on `PATH` (for example through MSYS2).
 > If you use WSL, install the Linux build inside WSL with `install.sh` instead.
@@ -77,6 +79,26 @@ go build -o tsp.exe .
 # or install into %GOBIN%
 go install .
 ```
+
+### Uninstall
+
+On Windows:
+
+```powershell
+irm https://raw.githubusercontent.com/shizengzhou/tsp/main/uninstall.ps1 | iex
+```
+
+On macOS/Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/shizengzhou/tsp/main/uninstall.sh | bash
+```
+
+Both remove the binary and delete the install directory once it is empty; on
+Windows the directory is also dropped from your user `Path` at that point (and
+from the current session), so other tools installed next to `tsp` keep working.
+Files written by `tsp` itself — the `ZSH_THEME` line, `oh-my-posh` init lines,
+`alacritty.toml` imports and the downloaded themes — are left untouched.
 
 ## Usage
 
@@ -252,6 +274,8 @@ git push origin v0.1.0
 main.go                 command dispatch and help
 install.sh              install script for macOS/Linux
 install.ps1             install script for Windows
+uninstall.sh            uninstall script for macOS/Linux
+uninstall.ps1           uninstall script for Windows
 internal/update/update.go self update from GitHub releases
 internal/omz/theme.go   theme discovery ($ZSH/themes + $ZSH_CUSTOM)
 internal/omz/preview.go theme preview renderer, temporary HOME, cache

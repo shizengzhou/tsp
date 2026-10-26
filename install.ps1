@@ -46,6 +46,9 @@ Options:
   -InstallDir DIR  Where to put tsp.exe (default: %USERPROFILE%\.local\bin)
   -Help            Show this help
 
+The install directory is added to your user PATH (and to the PATH of this
+session), so tsp can be run from any new terminal.
+
 Environment variables:
   TSP_VERSION      Same as -Version
   TSP_INSTALL_DIR  Same as -InstallDir
@@ -57,6 +60,69 @@ Environment variables:
 if ($Help) {
     Show-Usage
     exit 0
+}
+
+# Get-MergedPath returns the PATH value with the directory appended, or $null
+# when the directory is already listed.
+function Get-MergedPath {
+    param([string]$Current, [string]$Directory)
+
+    $trimmed = $Directory.TrimEnd('\')
+    $entries = @($Current -split ';' | Where-Object { $_.Trim() -ne '' })
+    foreach ($entry in $entries) {
+        if ($entry.TrimEnd('\') -ieq $trimmed) {
+            return $null
+        }
+    }
+    return (@($entries) + $Directory) -join ';'
+}
+
+# Add-ToUserPath appends the directory to the user PATH. The raw registry value
+# is read and written back with its original kind, because
+# [Environment]::GetEnvironmentVariable expands %USERPROFILE% and writing that
+# back bakes the expanded paths in and downgrades REG_EXPAND_SZ to REG_SZ.
+function Add-ToUserPath {
+    param([Parameter(Mandatory = $true)][string]$Directory)
+
+    $key = [Microsoft.Win32.Registry]::CurrentUser.OpenSubKey('Environment', $true)
+    if (-not $key) {
+        throw 'cannot open HKCU\Environment'
+    }
+    try {
+        $kind = [Microsoft.Win32.RegistryValueKind]::ExpandString
+        $current = ''
+        if ($key.GetValueNames() -contains 'Path') {
+            $kind = $key.GetValueKind('Path')
+            $current = [string]$key.GetValue('Path', '', [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
+        }
+
+        $updated = Get-MergedPath -Current $current -Directory $Directory
+        if ($null -eq $updated) {
+            return $false
+        }
+
+        $key.SetValue('Path', $updated, $kind)
+        return $true
+    } finally {
+        $key.Close()
+    }
+}
+
+# Publish-EnvironmentChange broadcasts WM_SETTINGCHANGE so already running
+# processes (Explorer, terminals started from it) pick up the new PATH without
+# a sign-out. Best effort: the value is persisted either way.
+function Publish-EnvironmentChange {
+    try {
+        if (-not ('TspInstaller.NativeMethods' -as [type])) {
+            Add-Type -Namespace TspInstaller -Name NativeMethods -MemberDefinition @'
+[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wParam, string lParam, uint fuFlags, uint uTimeout, out UIntPtr lpdwResult);
+'@
+        }
+        $result = [UIntPtr]::Zero
+        [void][TspInstaller.NativeMethods]::SendMessageTimeout([IntPtr]0xffff, 0x1A, [UIntPtr]::Zero, 'Environment', 2, 1000, [ref]$result)
+    } catch {
+    }
 }
 
 $failed = $false
@@ -157,16 +223,23 @@ try {
 
     Write-Host "  installed tsp $num to $target"
 
-    $onPath = ($env:Path -split ';') | Where-Object { $_.TrimEnd('\') -ieq $InstallDir.TrimEnd('\') }
-    if (-not $onPath) {
-        Write-Host ''
-        Write-Host "$InstallDir is not on your PATH. Add it for this session with:"
-        Write-Host "  `$env:Path += `";$InstallDir`""
-        Write-Host 'Persist it by adding the directory to your user PATH environment variable.'
+    $pathChanged = $false
+    try {
+        $pathChanged = Add-ToUserPath -Directory $InstallDir
+    } catch {
+        Write-Host "  warning: could not add $InstallDir to your user PATH: $($_.Exception.Message)"
     }
 
-    Write-Host ''
-    Write-Host 'Run "tsp omz themes" to browse your oh-my-zsh themes.'
+    $onPath = ($env:Path -split ';') | Where-Object { $_.TrimEnd('\') -ieq $InstallDir.TrimEnd('\') }
+    if (-not $onPath) {
+        # Make tsp available in this session instead of only after a restart.
+        $env:Path = if ($env:Path) { "$InstallDir;$env:Path" } else { $InstallDir }
+    }
+    if ($pathChanged) {
+        Publish-EnvironmentChange
+        Write-Host "  added $InstallDir to your user PATH"
+    }
+    Write-Host '  run "tsp omz themes" to browse your oh-my-zsh themes'
 } catch {
     [Console]::Error.WriteLine("error: $($_.Exception.Message)")
     $failed = $true
