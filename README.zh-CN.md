@@ -48,7 +48,7 @@ irm https://raw.githubusercontent.com/shizengzhou/tsp/main/install.ps1 -OutFile 
 .\install.ps1 -Version v0.1.0 -InstallDir C:\Tools
 ```
 
-脚本会下载 Windows zip 包、校验 `checksums.txt`，把 `tsp.exe` 安装到 `%USERPROFILE%\.local\bin`，并把这个目录追加到用户 `Path`（同时更新当前会话的 PATH），新开终端即可直接运行 `tsp`，无需注销。支持 Windows PowerShell 5.1+ 与 PowerShell 7。
+脚本会下载 Windows zip 包、校验 `checksums.txt`，把 `tsp.exe` 安装到 `%USERPROFILE%\.local\bin`，并把这个目录追加到用户 `Path`（同时更新当前会话的 PATH），新开终端即可直接运行 `tsp`，无需注销。用 `-InstallDir` 自定义目录时，脚本会把该目录记到 `%LOCALAPPDATA%\tsp\install.txt`，卸载时无需再指定。支持 Windows PowerShell 5.1+ 与 PowerShell 7。
 
 > `tsp` 仍然需要 `PATH` 中有 `zsh` 与 oh-my-zsh（例如通过 MSYS2 安装）。使用 WSL 时，请直接在 WSL 内用 `install.sh` 安装 Linux 版本。
 
@@ -85,6 +85,8 @@ macOS/Linux：
 ```bash
 curl -fsSL https://raw.githubusercontent.com/shizengzhou/tsp/main/uninstall.sh | bash
 ```
+
+Windows 卸载脚本会自动读取安装时记录的目录（`%LOCALAPPDATA%\tsp\install.txt`），自定义安装位置也无需再传 `-InstallDir`；记录文件会随卸载一并清理。若目录已不在，可显式指定：`.\uninstall.ps1 -InstallDir C:\Tools`。
 
 两个脚本都会删除二进制，并在安装目录变空后一并删掉该目录；Windows 上此时还会把它从用户 `Path`（以及当前会话）中移除，因此和 `tsp` 放在同一目录的其它工具不受影响。`tsp` 自己写入的文件——`ZSH_THEME` 行、`oh-my-posh` init 行、`alacritty.toml` 的 import 与已下载的主题——不会被改动。
 

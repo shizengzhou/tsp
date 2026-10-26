@@ -51,8 +51,9 @@ irm https://raw.githubusercontent.com/shizengzhou/tsp/main/install.ps1 -OutFile 
 The script downloads the Windows zip, verifies `checksums.txt`, installs
 `tsp.exe` into `%USERPROFILE%\.local\bin`, and appends that directory to your
 user `Path` (and to the PATH of the current session), so `tsp` works in new
-terminals without signing out. It works with Windows PowerShell 5.1+ and
-PowerShell 7.
+terminals without signing out. A custom `-InstallDir` is recorded in
+`%LOCALAPPDATA%\tsp\install.txt`, so uninstall finds it without being told. It
+works with Windows PowerShell 5.1+ and PowerShell 7.
 
 > `tsp` still needs `zsh` and oh-my-zsh on `PATH` (for example through MSYS2).
 > If you use WSL, install the Linux build inside WSL with `install.sh` instead.
@@ -93,6 +94,11 @@ On macOS/Linux:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/shizengzhou/tsp/main/uninstall.sh | bash
 ```
+
+On Windows the uninstaller reads the directory recorded at install time
+(`%LOCALAPPDATA%\tsp\install.txt`), so a custom location needs no `-InstallDir`;
+the record is cleaned up on the way out. If the directory is already gone, pass
+it explicitly: `.\uninstall.ps1 -InstallDir C:\Tools`.
 
 Both remove the binary and delete the install directory once it is empty; on
 Windows the directory is also dropped from your user `Path` at that point (and

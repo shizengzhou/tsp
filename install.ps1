@@ -29,6 +29,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# `exit` would close the caller's terminal when the script is piped into
+# Invoke-Expression (`irm … | iex`), so it is only used when running from a file.
+$script:fromFile = -not [string]::IsNullOrEmpty($MyInvocation.MyCommand.Path)
+
 # Windows PowerShell 5.1 may still default to TLS 1.0, which GitHub rejects.
 if ($PSVersionTable.PSVersion.Major -lt 6) {
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
@@ -59,7 +63,25 @@ Environment variables:
 
 if ($Help) {
     Show-Usage
-    exit 0
+    return
+}
+
+# Get-InstallStatePath returns the file that records where tsp was installed, so
+# uninstall.ps1 can find a custom directory without being told.
+function Get-InstallStatePath {
+    $base = $env:LOCALAPPDATA
+    if (-not $base) {
+        $base = Join-Path $HOME 'AppData\Local'
+    }
+    return Join-Path $base 'tsp\install.txt'
+}
+
+function Set-RecordedInstallDir {
+    param([Parameter(Mandatory = $true)][string]$Directory)
+
+    $path = Get-InstallStatePath
+    New-Item -ItemType Directory -Path (Split-Path -Parent $path) -Force | Out-Null
+    [IO.File]::WriteAllText($path, $Directory)
 }
 
 # Get-MergedPath returns the PATH value with the directory appended, or $null
@@ -223,6 +245,12 @@ try {
 
     Write-Host "  installed tsp $num to $target"
 
+    try {
+        Set-RecordedInstallDir -Directory $InstallDir
+    } catch {
+        Write-Host "  warning: could not record the install directory: $($_.Exception.Message)"
+    }
+
     $pathChanged = $false
     try {
         $pathChanged = Add-ToUserPath -Directory $InstallDir
@@ -249,6 +277,6 @@ try {
     }
 }
 
-if ($failed) {
+if ($failed -and $script:fromFile) {
     exit 1
 }

@@ -24,6 +24,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# `exit` would close the caller's terminal when the script is piped into
+# Invoke-Expression (`irm … | iex`), so it is only used when running from a file.
+$script:fromFile = -not [string]::IsNullOrEmpty($MyInvocation.MyCommand.Path)
+
 function Show-Usage {
     @'
 Uninstall tsp on Windows.
@@ -32,7 +36,8 @@ Usage:
   uninstall.ps1 [-InstallDir DIR]
 
 Options:
-  -InstallDir DIR  Where tsp.exe was installed (default: %USERPROFILE%\.local\bin)
+  -InstallDir DIR  Where tsp.exe was installed (default: the directory recorded
+                   by install.ps1, or %USERPROFILE%\.local\bin)
   -Help            Show this help
 
 Environment variables:
@@ -45,7 +50,44 @@ after tsp.exe is deleted, so other tools installed next to it keep working.
 
 if ($Help) {
     Show-Usage
-    exit 0
+    return
+}
+
+# Get-InstallStatePath returns the file install.ps1 uses to record where tsp was
+# installed, so a custom directory can be found without -InstallDir.
+function Get-InstallStatePath {
+    $base = $env:LOCALAPPDATA
+    if (-not $base) {
+        $base = Join-Path $HOME 'AppData\Local'
+    }
+    return Join-Path $base 'tsp\install.txt'
+}
+
+function Get-RecordedInstallDir {
+    $path = Get-InstallStatePath
+    try {
+        if (-not (Test-Path -LiteralPath $path)) {
+            return ''
+        }
+        return ([IO.File]::ReadAllText($path)).Trim()
+    } catch {
+        return ''
+    }
+}
+
+function Remove-InstallRecord {
+    $path = Get-InstallStatePath
+    $dir = Split-Path -Parent $path
+    try {
+        if (Test-Path -LiteralPath $path) {
+            Remove-Item -LiteralPath $path -Force
+        }
+        $left = @(Get-ChildItem -LiteralPath $dir -Force -ErrorAction SilentlyContinue)
+        if ($left.Count -eq 0) {
+            Remove-Item -LiteralPath $dir -Force
+        }
+    } catch {
+    }
 }
 
 # Remove-FromUserPath drops the directory from the user PATH. The raw registry
@@ -99,14 +141,21 @@ public static extern IntPtr SendMessageTimeout(IntPtr hWnd, uint Msg, UIntPtr wP
 $failed = $false
 
 try {
+    $recorded = Get-RecordedInstallDir
     if (-not $InstallDir) {
-        $InstallDir = Join-Path $HOME '.local\bin'
+        # Prefer the directory install.ps1 recorded, so a custom location is
+        # found without repeating -InstallDir.
+        $InstallDir = if ($recorded) { $recorded } else { Join-Path $HOME '.local\bin' }
     }
+    $usesRecord = $recorded -and ($recorded.TrimEnd('\') -ieq $InstallDir.TrimEnd('\'))
 
     $target = Join-Path $InstallDir 'tsp.exe'
     if (-not (Test-Path -LiteralPath $target)) {
         Write-Host "  tsp is not installed in $InstallDir"
-        exit 0
+        if ($usesRecord) {
+            Remove-InstallRecord
+        }
+        return
     }
 
     Remove-Item -LiteralPath $target -Force
@@ -131,12 +180,16 @@ try {
         }
     }
 
+    if ($usesRecord) {
+        Remove-InstallRecord
+    }
+
     Write-Host '  profiles and configs written by tsp were left untouched'
 } catch {
     [Console]::Error.WriteLine("error: $($_.Exception.Message)")
     $failed = $true
 }
 
-if ($failed) {
+if ($failed -and $script:fromFile) {
     exit 1
 }
