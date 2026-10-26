@@ -4,11 +4,14 @@ English | [简体中文](README.zh-CN.md)
 
 [![Release](https://github.com/shizengzhou/tsp/actions/workflows/release.yml/badge.svg)](https://github.com/shizengzhou/tsp/actions/workflows/release.yml)
 
+[![tsp demo](tsp.jpg)](https://youtu.be/sA8lwbAzxVU)
+
 A collection of small tools for previewing terminal settings:
 
 - `tsp omz themes` — oh-my-zsh theme browser with a live prompt preview; `Enter` applies a theme via `omz theme set`
 - `tsp omp themes` — oh-my-posh theme browser with a live prompt preview; `Enter` rewrites the `oh-my-posh init` line of your shell profile
 - `tsp fonts` — installed monospaced font family browser with styles and a glyph sample; `Enter` prints the chosen family name
+- `tsp themes` — alacritty color theme browser with a live palette and code preview; `Enter` applies the theme through `general.import`
 
 ## Requirements
 

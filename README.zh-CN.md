@@ -4,11 +4,14 @@
 
 [![Release](https://github.com/shizengzhou/tsp/actions/workflows/release.yml/badge.svg)](https://github.com/shizengzhou/tsp/actions/workflows/release.yml)
 
+[![tsp 演示](tsp.jpg)](https://youtu.be/sA8lwbAzxVU)
+
 终端配置的预览小工具集合：
 
 - `tsp omz themes` — oh-my-zsh 主题浏览器，右侧实时预览提示符；回车通过 `omz theme set` 应用主题
 - `tsp omp themes` — oh-my-posh 主题浏览器，右侧实时预览提示符；回车改写 shell profile 中的 `oh-my-posh init` 行
 - `tsp fonts` — 已安装等宽字体家族浏览器，右侧显示样式与字形示例；回车把所选家族名输出到 stdout
+- `tsp themes` — alacritty 配色主题浏览器，右侧预览调色板与代码；回车通过 `general.import` 应用主题
 
 ## 环境要求
 
