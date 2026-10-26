@@ -29,6 +29,19 @@ func runBrowser(families []Family) error {
 
 	ui := NewUI(families)
 	ui.protocol = detectImageProtocol()
+	if ui.protocol != imageProtocolNone {
+		// The sample is a transparent image, so its glyphs must contrast with
+		// the terminal background rather than assume a dark theme.
+		if background, ok := terminalBackgroundColor(); ok {
+			ui.foreground = textColorForBackground(background)
+		}
+		// Size the single preview row with the terminal's real cell shape;
+		// terminals whose cells are not the usual 1:2 otherwise stretch the
+		// sample and lose the font's proportions.
+		if aspect := terminalCellAspect(); aspect > 0 {
+			ui.cellAspect = aspect
+		}
+	}
 
 	final, err := tea.NewProgram(ui, tea.WithAltScreen()).Run()
 	if err != nil {

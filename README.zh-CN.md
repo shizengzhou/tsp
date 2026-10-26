@@ -116,7 +116,7 @@ tsp fonts
 font="$(tsp fonts)"
 ```
 
-在支持 Kitty graphics 协议的终端（kitty、Ghostty、WezTerm）或 iTerm2 inline image 协议的 iTerm2 中，示例会用所选字体栅格化成图片并贴到右侧，是真实预览；图片背景透明，字形颜色会根据 `COLORFGBG` 适配明/暗主题，因此能融入面板而不会出现色块。其他终端（VS Code/Trae 终端、tmux）会退回用终端当前字体绘制的文本示例，并在界面中说明。`TSP_GRAPHICS=0` 可强制文本回退，`TSP_GRAPHICS=1` 可强制启用图形（便于测试）。
+在能响应图形能力查询的终端中——Kitty graphics 协议（kitty、Ghostty、WezTerm 以及其他基于 libghostty 的终端）或 iTerm2 inline image 协议（iTerm2、开启 `terminal.integrated.enableImages` 的 VS Code）——示例会用所选字体栅格化成图片并贴到右侧，是真实预览。启动浏览器前会直接向终端查询能力；对不响应查询的终端（部分 VS Code 系终端只实现了 inline image 而不响应查询）再用环境变量兜底。图片背景透明，字形颜色会根据终端上报的背景色（无法获取时回退 `COLORFGBG`）自动选择深色或浅色，因此在明/暗主题下都清晰可读，也不会出现色块。其他终端与 tmux 会退回用终端当前字体绘制的文本示例，并在界面中说明。`TSP_GRAPHICS=0` 可强制文本回退，`TSP_GRAPHICS=1` 可强制启用图形（便于测试）。
 
 | 按键 | 动作 |
 | --- | --- |
@@ -173,6 +173,7 @@ internal/omz/run.go     主题入口与终端检查
 internal/fonts/font.go  已安装字体发现与家族分组
 internal/fonts/ui.go    字体浏览器界面
 internal/fonts/image.go 将字体示例栅格化为 PNG
-internal/fonts/graphics.go Kitty graphics 检测与图像转义序列
+internal/fonts/probe.go 向终端查询其支持的图形协议
+internal/fonts/graphics.go 图形协议选择与图像转义序列
 internal/fonts/run.go   字体入口与终端检查
 ```

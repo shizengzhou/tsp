@@ -31,10 +31,14 @@ const sampleText = "abcdefghijklmnopqrstuvwxyz 0123456789 ABCDEFGHIJKLMNOPQRSTUV
 const (
 	imageFontSize = 34.0
 	imagePadding  = 2
+
+	// defaultCellAspect is the assumed height/width of a terminal cell when the
+	// terminal does not report its real cell size.
+	defaultCellAspect = 2.0
 )
 
 // renderFamilyImage rasterizes the sample text with the family's primary face.
-func renderFamilyImage(family Family) imageResult {
+func renderFamilyImage(family Family, foreground color.RGBA) imageResult {
 	face := family.Primary()
 	if face.Path == "" {
 		return imageResult{err: errors.New("font has no source file")}
@@ -89,7 +93,6 @@ func renderFamilyImage(family Family) imageResult {
 	}
 
 	img := image.NewRGBA(image.Rect(0, 0, imgWidth, imgHeight))
-	foreground := previewTextColor()
 
 	// The background stays transparent so the sample blends with the terminal
 	// theme instead of covering the pane with a dark card.
@@ -110,16 +113,31 @@ func renderFamilyImage(family Family) imageResult {
 	return imageResult{png: buf.Bytes(), width: imgWidth, height: imgHeight}
 }
 
-// previewTextColor picks light or dark glyphs from the terminal background as
-// reported by COLORFGBG, so the transparent sample stays readable.
+var (
+	darkPreviewText  = color.RGBA{R: 0x22, G: 0x24, B: 0x2a, A: 0xff}
+	lightPreviewText = color.RGBA{R: 0xe6, G: 0xe7, B: 0xeb, A: 0xff}
+)
+
+// previewTextColor picks the glyph color from COLORFGBG. It is only the
+// fallback for terminals whose background could not be queried at startup.
 func previewTextColor() color.RGBA {
 	parts := strings.Split(os.Getenv("COLORFGBG"), ";")
 	if len(parts) >= 2 {
 		if bg, err := strconv.Atoi(parts[len(parts)-1]); err == nil && bg >= 7 && bg <= 15 {
-			return color.RGBA{R: 0x22, G: 0x24, B: 0x2a, A: 0xff}
+			return darkPreviewText
 		}
 	}
-	return color.RGBA{R: 0xe6, G: 0xe7, B: 0xeb, A: 0xff}
+	return lightPreviewText
+}
+
+// textColorForBackground picks dark glyphs for a light terminal background and
+// light glyphs otherwise, so the transparent sample stays readable.
+func textColorForBackground(background color.RGBA) color.RGBA {
+	luma := (0.299*float64(background.R) + 0.587*float64(background.G) + 0.114*float64(background.B)) / 255
+	if luma >= 0.5 {
+		return darkPreviewText
+	}
+	return lightPreviewText
 }
 
 // sampleForFont keeps only the sample characters the font actually maps, and
@@ -164,13 +182,17 @@ func sampleForFont(f *sfnt.Font) (string, bool) {
 
 // imageCells returns the placement rectangle (in terminal cells) for the
 // sample. The height is always one row so every font gets the same visual
-// size; the width follows the image aspect ratio (assuming 1:2 cells) and is
-// capped to the pane so nothing gets truncated.
-func imageCells(img imageResult, paneCols int) (cols, rows int) {
+// size; the width follows the image aspect ratio and the terminal's cell shape
+// so the glyphs are not stretched, and is capped to the pane so nothing gets
+// truncated.
+func imageCells(img imageResult, paneCols int, cellAspect float64) (cols, rows int) {
 	if img.width <= 0 || img.height <= 0 || paneCols <= 0 {
 		return 0, 0
 	}
-	cols = int(math.Ceil(float64(img.width) / float64(img.height) * 2))
+	if cellAspect <= 0 {
+		cellAspect = defaultCellAspect
+	}
+	cols = int(math.Ceil(float64(img.width) / float64(img.height) * cellAspect))
 	// Leave one column spare so the cursor can be parked after the image
 	// without sitting on the terminal's last cell (see imageEscapes).
 	if cols >= paneCols {

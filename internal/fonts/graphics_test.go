@@ -8,14 +8,26 @@ import (
 )
 
 func TestDetectImageProtocol(t *testing.T) {
+	// Never talk to the real terminal from a test.
+	originalProbe := terminalProbe
+	terminalProbe = func() (imageProtocol, bool) { return imageProtocolNone, false }
+	t.Cleanup(func() { terminalProbe = originalProbe })
+
 	t.Setenv("TSP_GRAPHICS", "")
 	t.Setenv("TMUX", "")
 	t.Setenv("KITTY_WINDOW_ID", "")
+	t.Setenv("KITTY_PID", "")
 	t.Setenv("WEZTERM_PANE", "")
+	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
+	t.Setenv("GHOSTTY_BIN_DIR", "")
 	t.Setenv("LC_TERMINAL", "")
 	t.Setenv("TERM", "xterm-256color")
 	t.Setenv("TERM_PROGRAM", "vscode")
+	if got := detectImageProtocol(); got != imageProtocolIterm {
+		t.Errorf("vscode protocol = %v, want iterm", got)
+	}
 
+	t.Setenv("TERM_PROGRAM", "Apple_Terminal")
 	if got := detectImageProtocol(); got != imageProtocolNone {
 		t.Errorf("plain terminal protocol = %v, want none", got)
 	}
@@ -24,12 +36,30 @@ func TestDetectImageProtocol(t *testing.T) {
 	if got := detectImageProtocol(); got != imageProtocolKitty {
 		t.Errorf("ghostty protocol = %v, want kitty", got)
 	}
+	// Terminals that embed libghostty keep their own TERM_PROGRAM but still
+	// run with Ghostty's TERM.
+	t.Setenv("TERM_PROGRAM", "cmux")
+	t.Setenv("TERM", "xterm-ghostty")
+	if got := detectImageProtocol(); got != imageProtocolKitty {
+		t.Errorf("libghostty terminal protocol = %v, want kitty", got)
+	}
+	t.Setenv("TERM", "xterm-256color")
+	t.Setenv("TERM_PROGRAM", "")
+	t.Setenv("GHOSTTY_RESOURCES_DIR", "/opt/ghostty")
+	if got := detectImageProtocol(); got != imageProtocolKitty {
+		t.Errorf("GHOSTTY_RESOURCES_DIR protocol = %v, want kitty", got)
+	}
+	t.Setenv("GHOSTTY_RESOURCES_DIR", "")
+	t.Setenv("KITTY_PID", "123")
+	if got := detectImageProtocol(); got != imageProtocolKitty {
+		t.Errorf("KITTY_PID protocol = %v, want kitty", got)
+	}
+	t.Setenv("KITTY_PID", "")
 	t.Setenv("TERM_PROGRAM", "iTerm.app")
 	if got := detectImageProtocol(); got != imageProtocolIterm {
 		t.Errorf("iTerm.app protocol = %v, want iterm", got)
 	}
-	t.Setenv("TERM_PROGRAM", "vscode")
-
+	t.Setenv("TERM_PROGRAM", "")
 	t.Setenv("LC_TERMINAL", "iTerm2")
 	if got := detectImageProtocol(); got != imageProtocolIterm {
 		t.Errorf("LC_TERMINAL=iTerm2 protocol = %v, want iterm", got)
@@ -48,6 +78,7 @@ func TestDetectImageProtocol(t *testing.T) {
 	}
 	t.Setenv("TMUX", "")
 
+	t.Setenv("TERM_PROGRAM", "")
 	t.Setenv("TSP_GRAPHICS", "1")
 	if got := detectImageProtocol(); got != imageProtocolKitty {
 		t.Errorf("TSP_GRAPHICS=1 protocol = %v, want kitty fallback", got)

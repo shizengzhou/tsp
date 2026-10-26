@@ -2,6 +2,7 @@ package fonts
 
 import (
 	"fmt"
+	"image/color"
 	"os"
 	"path/filepath"
 	"strings"
@@ -47,6 +48,8 @@ type UI struct {
 	chosen string
 
 	protocol    imageProtocol
+	foreground  color.RGBA
+	cellAspect  float64
 	images      map[string]imageResult
 	renderImage func(Family) imageResult
 }
@@ -62,9 +65,11 @@ type imageArea struct {
 func NewUI(families []Family) *UI {
 	home, _ := os.UserHomeDir()
 	return &UI{
-		families: families,
-		home:     home,
-		images:   make(map[string]imageResult),
+		families:   families,
+		home:       home,
+		foreground: previewTextColor(),
+		cellAspect: defaultCellAspect,
+		images:     make(map[string]imageResult),
 	}
 }
 
@@ -311,7 +316,7 @@ func (m *UI) imageFor(family Family) imageResult {
 	if m.renderImage != nil {
 		result = m.renderImage(family)
 	} else {
-		result = renderFamilyImage(family)
+		result = renderFamilyImage(family, m.foreground)
 	}
 	m.images[key] = result
 	return result
@@ -419,7 +424,7 @@ func (m *UI) previewView(width, height int, includeImage bool) ([]string, *image
 		if img.err == nil && img.width > 0 && img.height > 0 {
 			// Reserve room for the post-image metadata block.
 			if height-len(lines)-7 >= 1 {
-				cols, rows := imageCells(img, width)
+				cols, rows := imageCells(img, width, m.cellAspect)
 				area = &imageArea{start: len(lines), rows: rows, cols: cols, png: img.png}
 				add("")
 			}

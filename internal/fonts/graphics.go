@@ -28,7 +28,7 @@ type imagePlan struct {
 func detectImageProtocol() imageProtocol {
 	switch strings.ToLower(os.Getenv("TSP_GRAPHICS")) {
 	case "1", "true", "yes":
-		if protocol := envImageProtocol(); protocol != imageProtocolNone {
+		if protocol := detectTerminalProtocol(); protocol != imageProtocolNone {
 			return protocol
 		}
 		return imageProtocolKitty
@@ -40,23 +40,49 @@ func detectImageProtocol() imageProtocol {
 	if os.Getenv("TMUX") != "" {
 		return imageProtocolNone
 	}
+	return detectTerminalProtocol()
+}
+
+// detectTerminalProtocol asks the terminal which protocol it supports. The
+// Kitty answer is authoritative. The iTerm2 inline image protocol has no
+// reliable query of its own (the ReportCellSize reply is optional), so a
+// recognized iTerm2-style terminal is still used when the probe stays silent.
+func detectTerminalProtocol() imageProtocol {
+	if protocol, queried := terminalProbe(); queried && protocol != imageProtocolNone {
+		return protocol
+	}
 	return envImageProtocol()
 }
 
+// envImageProtocol maps known terminals to their protocol from environment
+// variables. It backs up terminals that do not answer the capability query,
+// notably iTerm2-style terminals that implement inline images without
+// replying to ReportCellSize.
 func envImageProtocol() imageProtocol {
-	switch strings.ToLower(os.Getenv("TERM_PROGRAM")) {
-	case "iterm.app":
+	program := strings.ToLower(os.Getenv("TERM_PROGRAM"))
+	term := strings.ToLower(os.Getenv("TERM"))
+
+	// iTerm2 and VS Code implement the iTerm2 inline image protocol.
+	if program == "iterm.app" || program == "vscode" {
 		return imageProtocolIterm
-	case "kitty", "ghostty", "wezterm":
+	}
+
+	// Kitty protocol: Kitty, Ghostty, WezTerm and forks. Applications that
+	// embed libghostty keep their own TERM_PROGRAM but still advertise
+	// TERM=xterm-ghostty, so the TERM and GHOSTTY_* checks below catch them.
+	if strings.Contains(program, "kitty") || strings.Contains(program, "ghostty") || strings.Contains(program, "wezterm") {
 		return imageProtocolKitty
 	}
 	if strings.EqualFold(os.Getenv("LC_TERMINAL"), "iTerm2") {
 		return imageProtocolIterm
 	}
-	if os.Getenv("KITTY_WINDOW_ID") != "" {
+	if os.Getenv("KITTY_WINDOW_ID") != "" || os.Getenv("KITTY_PID") != "" {
 		return imageProtocolKitty
 	}
-	if strings.Contains(strings.ToLower(os.Getenv("TERM")), "kitty") {
+	if strings.Contains(term, "kitty") || strings.Contains(term, "ghostty") {
+		return imageProtocolKitty
+	}
+	if os.Getenv("GHOSTTY_RESOURCES_DIR") != "" || os.Getenv("GHOSTTY_BIN_DIR") != "" {
 		return imageProtocolKitty
 	}
 	if os.Getenv("WEZTERM_PANE") != "" {

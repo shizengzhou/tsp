@@ -8,25 +8,28 @@ import (
 
 func TestImageCells(t *testing.T) {
 	cases := []struct {
-		img      imageResult
-		paneCols int
-		wantCols int
+		img        imageResult
+		paneCols   int
+		cellAspect float64
+		wantCols   int
 	}{
-		{imageResult{width: 1000, height: 200}, 80, 10},
-		{imageResult{width: 100, height: 100}, 80, 2},
-		{imageResult{width: 1000, height: 100}, 5, 4},
-		{imageResult{width: 0, height: 100}, 80, 0},
+		{imageResult{width: 1000, height: 200}, 80, 2, 10},
+		{imageResult{width: 1000, height: 200}, 80, 1.5, 8},
+		{imageResult{width: 1000, height: 200}, 80, 0, 10},
+		{imageResult{width: 100, height: 100}, 80, 2, 2},
+		{imageResult{width: 1000, height: 100}, 5, 2, 4},
+		{imageResult{width: 0, height: 100}, 80, 2, 0},
 	}
 	for _, tc := range cases {
-		cols, rows := imageCells(tc.img, tc.paneCols)
+		cols, rows := imageCells(tc.img, tc.paneCols, tc.cellAspect)
 		if cols != tc.wantCols || (rows != 0 && rows != 1) {
-			t.Errorf("imageCells(%+v, %d) = %d,%d; want cols=%d rows<=1", tc.img, tc.paneCols, cols, rows, tc.wantCols)
+			t.Errorf("imageCells(%+v, %d, %v) = %d,%d; want cols=%d rows<=1", tc.img, tc.paneCols, tc.cellAspect, cols, rows, tc.wantCols)
 		}
 	}
 }
 
 func TestRenderFamilyImageNoPath(t *testing.T) {
-	result := renderFamilyImage(Family{Name: "Missing"})
+	result := renderFamilyImage(Family{Name: "Missing"}, lightPreviewText)
 	if result.err == nil {
 		t.Fatal("renderFamilyImage() error = nil, want error")
 	}
@@ -61,7 +64,7 @@ func TestRenderNonASCIITFont(t *testing.T) {
 			continue
 		}
 		checked++
-		result := renderFamilyImage(family)
+		result := renderFamilyImage(family, lightPreviewText)
 		if result.err == nil {
 			t.Errorf("%s should be skipped (it would render .notdef boxes)", family.Name)
 		}
@@ -87,7 +90,7 @@ func TestRenderFamilyImage(t *testing.T) {
 		if family.Primary().Path == "" {
 			continue
 		}
-		candidate := renderFamilyImage(family)
+		candidate := renderFamilyImage(family, lightPreviewText)
 		if candidate.err == nil {
 			result = candidate
 			rendered = family

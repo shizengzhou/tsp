@@ -121,7 +121,7 @@ The right pane shows the family name, its styles, a `preview` block with a singl
 font="$(tsp fonts)"
 ```
 
-In terminals that support the Kitty graphics protocol (kitty, Ghostty, WezTerm) or iTerm2's inline image protocol (iTerm2) the sample is rasterized from the selected font and placed in the pane, so it is a real preview. The image has a transparent background (glyph colors follow `COLORFGBG` for light/dark themes), so it blends into the pane instead of drawing a colored card. Elsewhere (VS Code/Trae terminals, tmux) the pane falls back to a text sample drawn with your terminal's current font and says so. `TSP_GRAPHICS=0` forces the text fallback; `TSP_GRAPHICS=1` forces graphics (useful for testing).
+In terminals that answer a graphics capability query — the Kitty graphics protocol (kitty, Ghostty, WezTerm and other libghostty-based terminals) or iTerm2's inline image protocol (iTerm2, VS Code with `terminal.integrated.enableImages`) — the sample is rasterized from the selected font and placed in the pane, so it is a real preview. The terminal is queried directly before the browser starts; environment variables back this up for terminals that do not answer the query (some VS Code-based terminals implement inline images without replying). The image has a transparent background and its glyph color follows the terminal's reported background (falling back to `COLORFGBG`), so it stays readable on light and dark themes instead of drawing a colored card. Elsewhere (other terminals, tmux) the pane falls back to a text sample drawn with your terminal's current font and says so. `TSP_GRAPHICS=0` forces the text fallback; `TSP_GRAPHICS=1` forces graphics (useful for testing).
 
 | Key | Action |
 | --- | --- |
@@ -178,6 +178,7 @@ internal/omz/run.go     themes entry point and terminal check
 internal/fonts/font.go  installed font discovery and family grouping
 internal/fonts/ui.go    font browser interface
 internal/fonts/image.go rasterizes font samples into PNG
-internal/fonts/graphics.go Kitty graphics detection and image escapes
+internal/fonts/probe.go asks the terminal which graphics protocol it supports
+internal/fonts/graphics.go graphics protocol selection and image escapes
 internal/fonts/run.go   fonts entry point and terminal check
 ```
