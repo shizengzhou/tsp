@@ -39,6 +39,17 @@ func TestUIShowsThemePreview(t *testing.T) {
 	if got := len(strings.Split(view, "\n")); got != 32 {
 		t.Errorf("View() has %d lines, want 32", got)
 	}
+
+	rows := strings.Split(view, "\n")
+	if got := ansi.Strip(rows[1]); !strings.Contains(got, "Demo") {
+		t.Errorf("first preview row = %q, want the theme name", got)
+	}
+	if got := ansi.Strip(rows[2]); !strings.Contains(got, "themes/Demo.toml") {
+		t.Errorf("second preview row = %q, want the theme path", got)
+	}
+	if got := len(ansi.Strip(rows[30])); got < m.previewWidth() {
+		t.Errorf("last body row is %d cells, want the preview to fill the pane (>= %d)", got, m.previewWidth())
+	}
 }
 
 func TestUIAppliesThemeOnEnter(t *testing.T) {

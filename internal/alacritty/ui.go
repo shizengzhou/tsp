@@ -403,12 +403,13 @@ func (m *UI) previewView(width, height int) []string {
 	if !ok {
 		return fitRows([]string{"", "  " + styleMuted.Render("no matching themes")}, height)
 	}
-	return fitRows(m.themePreview(theme, width), height)
+	return fitRows(m.themePreview(theme, width, height), height)
 }
 
 // themePreview renders a palette and a sample of terminal output using the
-// selected theme's own colors.
-func (m *UI) themePreview(theme Theme, width int) []string {
+// selected theme's own colors. The block is padded to the pane height so it
+// reads as one solid surface down to the footer.
+func (m *UI) themePreview(theme Theme, width, height int) []string {
 	w := width - 2
 	if w < 10 {
 		w = 10
@@ -422,7 +423,7 @@ func (m *UI) themePreview(theme Theme, width int) []string {
 		return base.Foreground(lipgloss.Color(theme.Normal[i]))
 	}
 
-	lines := make([]string, 0, 16)
+	lines := make([]string, 0, height)
 	add := func(text string) {
 		lines = append(lines, base.Width(w).Render(ansi.Truncate(text, w, "…")))
 	}
@@ -434,6 +435,7 @@ func (m *UI) themePreview(theme Theme, width int) []string {
 	}
 
 	addStyled(base.Bold(true), "  "+theme.Name)
+	addStyled(faint, "  "+shortenPath(theme.Path, m.home, w-2))
 	add("")
 	addParts(
 		faint.Render("  fg ")+base.Background(fg).Render("    "),
@@ -460,11 +462,14 @@ func (m *UI) themePreview(theme Theme, width int) []string {
 	addParts(faint.Render("  # " + theme.Name))
 	addParts(palette(1).Render("  error: file not found"))
 	add("")
-	addStyled(faint, "  "+shortenPath(theme.Path, m.home, w-2))
 	addStyled(faint, strings.Repeat("─", w))
 	addStyled(faint, "  code")
 	for _, line := range codePreviewLines(theme, w, base) {
 		lines = append(lines, line)
+	}
+	blank := base.Width(w).Render("")
+	for len(lines) < height {
+		lines = append(lines, blank)
 	}
 	return lines
 }
