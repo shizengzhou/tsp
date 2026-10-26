@@ -2,7 +2,7 @@ package alacritty
 
 import "testing"
 
-func TestIsAlacrittyTerminal(t *testing.T) {
+func TestIsAlacrittyEnv(t *testing.T) {
 	cases := []struct {
 		name string
 		env  map[string]string
@@ -26,8 +26,8 @@ func TestIsAlacrittyTerminal(t *testing.T) {
 			for key, value := range tc.env {
 				t.Setenv(key, value)
 			}
-			if got := isAlacrittyTerminal(); got != tc.want {
-				t.Errorf("isAlacrittyTerminal() = %v, want %v", got, tc.want)
+			if got := isAlacrittyEnv(); got != tc.want {
+				t.Errorf("isAlacrittyEnv() = %v, want %v", got, tc.want)
 			}
 		})
 	}

@@ -220,7 +220,7 @@ font="$(tsp fonts)"
 ## 其它行为
 
 - 所有浏览器都必须在交互式终端中运行；输出被管道接走时会报错
-- `tsp themes` 必须运行在 alacritty 内（通过 `ALACRITTY_SOCKET`/`ALACRITTY_WINDOW_ID`、`TERM_PROGRAM=Alacritty` 或 `TERM` 以 `alacritty` 开头识别），否则直接报错退出
+- `tsp themes` 必须运行在 alacritty 内（通过 `ALACRITTY_SOCKET`/`ALACRITTY_WINDOW_ID`、`TERM_PROGRAM=Alacritty` 或 `TERM` 以 `alacritty` 开头识别；Windows 上 ConPTY 会改写 `TERM`，因此改为检查父进程链中是否有 `alacritty.exe`），否则直接报错退出
 - `tsp themes` 只解析 alacritty 的 TOML 配色文件；`.yml` 配置会被拒绝并提示先迁移到 TOML
 - 首次运行 `tsp themes` 需要联网获取并下载 alacritty 主题；下载失败时不会留下 themes 目录
 - `tsp omz themes` 在未安装 oh-my-zsh（或 `<zsh>/themes` 为空）时报错并以退出码 1 结束，可用 `--zsh` 指定实际路径

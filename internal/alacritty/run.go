@@ -68,9 +68,16 @@ func Run(opts Options) error {
 }
 
 // isAlacrittyTerminal reports whether the browser runs inside alacritty. The
-// IPC variables are set by every recent release; TERM and TERM_PROGRAM cover
-// older versions and custom terminfo setups.
+// environment variables are checked first; on Windows, where ConPTY resets TERM
+// and alacritty sets none of them, the process ancestry is used instead.
 func isAlacrittyTerminal() bool {
+	return isAlacrittyEnv() || alacrittyAncestor()
+}
+
+// isAlacrittyEnv reports whether the environment belongs to alacritty. The IPC
+// variables are set by every recent release; TERM and TERM_PROGRAM cover older
+// versions and custom terminfo setups.
+func isAlacrittyEnv() bool {
 	if os.Getenv("ALACRITTY_SOCKET") != "" || os.Getenv("ALACRITTY_WINDOW_ID") != "" {
 		return true
 	}

@@ -226,7 +226,7 @@ Previews are cached per theme and width, and are rendered on selection. At most 
 ## Other behavior
 
 - All browsers must run in an interactive terminal; piped output fails with an error.
-- `tsp themes` refuses to run outside alacritty (detected via `ALACRITTY_SOCKET`/`ALACRITTY_WINDOW_ID`, `TERM_PROGRAM=Alacritty`, or a `TERM` starting with `alacritty`) because the colors are only visible there.
+- `tsp themes` refuses to run outside alacritty (detected via `ALACRITTY_SOCKET`/`ALACRITTY_WINDOW_ID`, `TERM_PROGRAM=Alacritty`, or a `TERM` starting with `alacritty`; on Windows, where ConPTY replaces `TERM`, an `alacritty.exe` ancestor process is used instead) because the colors are only visible there.
 - `tsp themes` only understands alacritty's TOML color files; a `.yml` config is rejected with a migration hint.
 - The first `tsp themes` run needs network access to list and download the alacritty themes; a failed download leaves no themes directory behind.
 - `tsp omz themes` without oh-my-zsh (or when `<zsh>/themes` is empty) exits with status 1 and a hint to pass `--zsh`.
