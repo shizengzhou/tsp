@@ -32,3 +32,10 @@ func TestRunThemesRejectsRemovedPlainFlag(t *testing.T) {
 		t.Fatal("run(omz themes --plain) error = nil, want flag error")
 	}
 }
+
+func TestRunFontsRejectsExtraArgument(t *testing.T) {
+	err := run([]string{"fonts", "extra"})
+	if err == nil || !strings.Contains(err.Error(), "unexpected argument") {
+		t.Fatalf("run(fonts extra) error = %v, want unexpected argument", err)
+	}
+}

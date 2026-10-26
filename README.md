@@ -4,17 +4,16 @@ English | [简体中文](README.zh-CN.md)
 
 [![Release](https://github.com/shizengzhou/tsp/actions/workflows/release.yml/badge.svg)](https://github.com/shizengzhou/tsp/actions/workflows/release.yml)
 
-A collection of small tools for previewing terminal settings. It currently ships with an oh-my-zsh theme browser:
+A collection of small tools for previewing terminal settings:
 
-- Theme list on the left, live rendering of the theme's real prompt (`PROMPT` + `RPROMPT`) on the right
-- Built-in and custom themes, name filtering, All / Custom tabs
-- Press `Enter` to apply a theme with `omz theme set`, which rewrites `~/.zshrc`
+- `tsp omz themes` — oh-my-zsh theme browser with a live prompt preview; `Enter` applies a theme via `omz theme set`
+- `tsp fonts` — installed font family browser with styles and a glyph sample; `Enter` prints the chosen family name
 
 ## Requirements
 
-- Go 1.27.3+
-- `zsh` (both previews and theme setting run through zsh)
-- oh-my-zsh (read from `~/.oh-my-zsh` by default)
+- Go 1.27.3+ (to build from source)
+- `tsp omz themes`: `zsh` and oh-my-zsh (read from `~/.oh-my-zsh` by default)
+- `tsp fonts`: nothing beyond the binary
 
 ## Install
 
@@ -67,6 +66,8 @@ go install .
 
 ## Usage
 
+### Themes
+
 ```bash
 tsp omz themes
 ```
@@ -102,7 +103,37 @@ Themes are loaded from `<zsh>/themes/*.zsh-theme` and from `*.zsh-theme` files u
 
 `Enter` rewrites the `ZSH_THEME` line in `~/.zshrc` and creates a `.zshrc.bck` backup. Open a new zsh (or run `source ~/.zshrc`) for the change to take effect.
 
-## How previews are rendered
+### Fonts
+
+```bash
+tsp fonts
+```
+
+Lists every installed font family it can parse:
+
+- macOS: `~/Library/Fonts`, `/Library/Fonts`, `/System/Library/Fonts` and its `Supplemental` directory
+- Linux: `~/.fonts`, `~/.local/share/fonts`, `/usr/local/share/fonts`, `/usr/share/fonts`
+- Windows: `%WINDIR%\Fonts`, `%LOCALAPPDATA%\Microsoft\Windows\Fonts`
+
+The right pane shows the family name, its styles, a `preview` block with a single ASCII glyph line (the same sample used by kitty's `choose-fonts`), and the PostScript name and source file. Characters the selected font does not provide are omitted; fonts without enough scalable ASCII coverage fall back to the text sample. `Enter` prints the selected family name to stdout, which makes it scriptable:
+
+```bash
+font="$(tsp fonts)"
+```
+
+In terminals that support the Kitty graphics protocol (kitty, Ghostty, WezTerm) the sample is rasterized from the selected font and placed in the pane, so it is a real preview. The image has a transparent background (glyph colors follow `COLORFGBG` for light/dark themes), so it blends into the pane instead of drawing a colored card. Elsewhere (VS Code/Trae terminals, tmux) the pane falls back to a text sample drawn with your terminal's current font and says so. `TSP_GRAPHICS=0` forces the text fallback; `TSP_GRAPHICS=1` forces graphics (useful for testing).
+
+| Key | Action |
+| --- | --- |
+| `Up` / `Down`, `j` / `k` | Move selection |
+| `PgUp` / `PgDn` | Page up / down |
+| `g` / `G`, `Home` / `End` | Jump to first / last |
+| Start typing, or `/` | Filter by family name |
+| `Esc` | Clear the filter (and leave input mode) |
+| `Enter` | Print the selected family name and quit |
+| `q`, `Ctrl+C` | Quit |
+
+## How theme previews are rendered
 
 Previews are not static samples; they are rendered by a real zsh process:
 
@@ -116,15 +147,17 @@ Previews are cached per theme and width, and are rendered on selection. At most 
 
 ## Other behavior
 
-- It must run in an interactive terminal; if stdout is piped, it fails with `tsp omz themes needs an interactive terminal`.
-- Without oh-my-zsh (or when `<zsh>/themes` is empty) it exits with status 1 and a hint to pass `--zsh`.
+- Both browsers must run in an interactive terminal; piped output fails with an error.
+- `tsp omz themes` without oh-my-zsh (or when `<zsh>/themes` is empty) exits with status 1 and a hint to pass `--zsh`.
 - A missing custom directory is fine; the Custom tab is simply empty.
-- Previews are static snapshots: content that depends on external tools or runtime state (virtualenv, kube context, clock) may be empty or stale; press `r` to render again.
+- Theme previews are static snapshots: content that depends on external tools or runtime state (virtualenv, kube context, clock) may be empty or stale; press `r` to render again.
 - Setting a theme only rewrites `.zshrc`; it does not affect shells that are already running.
+- `tsp fonts` prints nothing when you quit with `q`; only `Enter` emits the family name.
+- Font samples are rasterized with `golang.org/x/image`; OpenType shaping features such as ligatures and stylistic sets are not applied.
 
 ## Releasing
 
-Push a version tag and the [release workflow](.github/workflows/release.yml) runs the tests, builds macOS/Linux archives for amd64 and arm64, and publishes them with checksums:
+Push a version tag and the [release workflow](.github/workflows/release.yml) runs the tests, builds macOS/Linux/Windows archives for amd64 and arm64, and publishes them with checksums:
 
 ```bash
 git tag v0.1.0
@@ -138,8 +171,13 @@ main.go                 command dispatch and help
 install.sh              install script for macOS/Linux
 install.ps1             install script for Windows
 internal/omz/theme.go   theme discovery ($ZSH/themes + $ZSH_CUSTOM)
-internal/omz/preview.go preview renderer, temporary HOME, cache
-internal/omz/ui.go      bubbletea/lipgloss interface
+internal/omz/preview.go theme preview renderer, temporary HOME, cache
+internal/omz/ui.go      theme browser interface
 internal/omz/set.go     applies themes via omz theme set
-internal/omz/run.go     entry point and terminal check
+internal/omz/run.go     themes entry point and terminal check
+internal/fonts/font.go  installed font discovery and family grouping
+internal/fonts/ui.go    font browser interface
+internal/fonts/image.go rasterizes font samples into PNG
+internal/fonts/graphics.go Kitty graphics detection and image escapes
+internal/fonts/run.go   fonts entry point and terminal check
 ```

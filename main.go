@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/shizengzhou/tsp/internal/fonts"
 	"github.com/shizengzhou/tsp/internal/omz"
 )
 
@@ -12,6 +13,7 @@ const usage = `tsp is a collection of small terminal tools.
 
 Usage:
   tsp omz themes [flags]    browse and preview oh-my-zsh themes
+  tsp fonts                 browse installed fonts and print the chosen family
 
 Run "tsp omz themes -h" for the flags of a command.
 `
@@ -29,6 +31,17 @@ Flags:
 Keys:
   ↑/↓ j/k   move        /   filter       tab  switch All/Custom
   ⏎        set theme   r   re-render     q    quit
+`
+
+const fontsUsage = `Usage:
+  tsp fonts
+
+Browse installed font families: the family list is on the left, styles and a
+glyph sample on the right. Enter prints the chosen family name to stdout.
+
+Keys:
+  ↑/↓ j/k   move        /   filter       ⏎  choose & print
+  q         quit        esc clear filter
 `
 
 func main() {
@@ -53,9 +66,24 @@ func run(args []string) error {
 		return nil
 	case "omz":
 		return runOmz(args[1:])
+	case "fonts":
+		return runFonts(args[1:])
 	default:
 		return fmt.Errorf("unknown command %q\n\n%s", args[0], usage)
 	}
+}
+
+func runFonts(args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "-h", "--help", "help":
+			fmt.Print(fontsUsage)
+			return nil
+		default:
+			return fmt.Errorf("unexpected argument %q", args[0])
+		}
+	}
+	return fonts.RunFonts(fonts.Options{})
 }
 
 func runOmz(args []string) error {
