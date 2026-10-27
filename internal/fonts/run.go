@@ -7,27 +7,45 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// Options controls font discovery.
-type Options struct {
-	Dirs []string
+// Choice is the family and the per-style faces picked in the second step.
+type Choice struct {
+	Family string
+	Slots  []Slot
 }
 
-// RunFonts opens the interactive font browser. The chosen family name is
-// printed to stdout after the program exits.
+// Options controls font discovery and what happens after a family is chosen.
+type Options struct {
+	Dirs []string
+
+	// Apply, when non-nil, receives the chosen family and its style slots
+	// instead of the family name being printed to stdout. It returns the path
+	// written, for the confirmation.
+	Apply func(Choice) (string, error)
+
+	// ChooseHint replaces the preview hint shown above the sample.
+	ChooseHint string
+}
+
+// RunFonts opens the interactive font browser. The chosen family is printed to
+// stdout, or handed to Options.Apply, after the program exits.
 func RunFonts(opts Options) error {
 	families, err := Discover(opts.Dirs...)
 	if err != nil {
 		return err
 	}
-	return runBrowser(families)
+	return runBrowser(families, opts)
 }
 
-func runBrowser(families []Family) error {
+func runBrowser(families []Family, opts Options) error {
 	if !isTerminal(os.Stdout) {
 		return fmt.Errorf("tsp fonts needs an interactive terminal")
 	}
 
 	ui := NewUI(families)
+	ui.saveMode = opts.Apply != nil
+	if opts.ChooseHint != "" {
+		ui.chooseHint = opts.ChooseHint
+	}
 	ui.protocol = detectImageProtocol()
 	if ui.protocol != imageProtocolNone {
 		// The sample is a transparent image, so its glyphs must contrast with
@@ -47,14 +65,26 @@ func runBrowser(families []Family) error {
 	if err != nil {
 		return err
 	}
-	printChosen(final)
-	return nil
+	return finish(final, opts)
 }
 
-func printChosen(final tea.Model) {
-	if ui, ok := final.(*UI); ok && ui.chosen != "" {
-		fmt.Println(ui.chosen)
+// finish prints the chosen family, or writes it out when an Apply callback is
+// configured.
+func finish(final tea.Model, opts Options) error {
+	ui, ok := final.(*UI)
+	if !ok || ui.chosen == "" {
+		return nil
 	}
+	if opts.Apply == nil {
+		fmt.Println(ui.chosen)
+		return nil
+	}
+	path, err := opts.Apply(Choice{Family: ui.chosen, Slots: ui.chosenSlots})
+	if err != nil {
+		return err
+	}
+	fmt.Printf("saved %q to %s\n", ui.chosen, path)
+	return nil
 }
 
 func isTerminal(f *os.File) bool {

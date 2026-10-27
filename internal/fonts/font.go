@@ -62,6 +62,89 @@ func (f Family) Primary() Face {
 	return Face{}
 }
 
+// Style slot names, matching alacritty's [font.<name>] tables.
+const (
+	SlotNormal     = "normal"
+	SlotBold       = "bold"
+	SlotItalic     = "italic"
+	SlotBoldItalic = "bold_italic"
+)
+
+// Slot is one style slot of the second browser step: the face a terminal will
+// use for that style. Face is empty when the family provides no matching face.
+type Slot struct {
+	Name  string
+	Label string
+	Face  Face
+}
+
+// Slots returns the four style slots of the family, matched by style name, in
+// the order a font picker shows them.
+func (f Family) Slots() []Slot {
+	slots := []Slot{
+		{Name: SlotNormal, Label: "Normal"},
+		{Name: SlotBold, Label: "Bold"},
+		{Name: SlotItalic, Label: "Italic"},
+		{Name: SlotBoldItalic, Label: "Bold Italic"},
+	}
+	for i := range slots {
+		slots[i].Face = f.slotFace(slots[i].Name)
+	}
+	return slots
+}
+
+// slotFace returns the face that best matches an alacritty style slot.
+func (f Family) slotFace(name string) Face {
+	switch name {
+	case SlotNormal:
+		for _, face := range f.Faces {
+			if style := lowerStyle(face); style == "regular" || style == "book" || style == "roman" {
+				return face
+			}
+		}
+		return f.Primary()
+	case SlotBold:
+		return f.matchFace(
+			func(style string) bool { return style == "bold" },
+			func(style string) bool {
+				return strings.Contains(style, "semibold") || strings.Contains(style, "demibold")
+			},
+			func(style string) bool { return strings.Contains(style, "bold") && !isItalicStyle(style) },
+		)
+	case SlotItalic:
+		return f.matchFace(
+			func(style string) bool { return style == "italic" || style == "oblique" },
+			func(style string) bool { return isItalicStyle(style) && !strings.Contains(style, "bold") },
+		)
+	case SlotBoldItalic:
+		return f.matchFace(
+			func(style string) bool { return strings.Contains(style, "bold") && isItalicStyle(style) },
+		)
+	}
+	return Face{}
+}
+
+// matchFace returns the first face whose style matches one of the predicates,
+// in predicate order.
+func (f Family) matchFace(predicates ...func(string) bool) Face {
+	for _, predicate := range predicates {
+		for _, face := range f.Faces {
+			if predicate(lowerStyle(face)) {
+				return face
+			}
+		}
+	}
+	return Face{}
+}
+
+func lowerStyle(face Face) string {
+	return strings.ToLower(strings.ReplaceAll(face.Style, " ", ""))
+}
+
+func isItalicStyle(style string) bool {
+	return strings.Contains(style, "italic") || strings.Contains(style, "oblique")
+}
+
 // DefaultDirs lists the font directories for the current platform.
 func DefaultDirs() []string {
 	switch runtime.GOOS {

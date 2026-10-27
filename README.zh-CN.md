@@ -10,7 +10,7 @@
 
 - `tsp omz themes` — oh-my-zsh 主题浏览器，右侧实时预览提示符；回车通过 `omz theme set` 应用主题
 - `tsp omp themes` — oh-my-posh 主题浏览器，右侧实时预览提示符；回车改写 shell profile 中的 `oh-my-posh init` 行
-- `tsp fonts` — 已安装等宽字体家族浏览器，右侧显示样式与字形示例；回车把所选家族名输出到 stdout
+- `tsp fonts` — 已安装等宽字体家族浏览器，右侧显示样式与字形示例；回车把所选家族名输出到 stdout，在 alacritty 内则保存为 alacritty 的字体
 - `tsp themes` — alacritty 配色主题浏览器，右侧预览调色板与代码；回车通过 `general.import` 应用主题
 
 ## 环境要求
@@ -205,11 +205,7 @@ tsp fonts
 - Linux：`~/.fonts`、`~/.local/share/fonts`、`/usr/local/share/fonts`、`/usr/share/fonts`
 - Windows：`%WINDIR%\Fonts`、`%LOCALAPPDATA%\Microsoft\Windows\Fonts`
 
-右侧显示家族名、样式、带 ASCII 字形示例（与 kitty `choose-fonts` 相同，按面板宽度自动换成多行）的 `preview` 区块，以及 PostScript 名和源文件。所选字体缺失的字符会被略去；ASCII 覆盖不足或没有可缩放轮廓的字体会退回文本示例。`Enter` 会把选中的家族名打印到 stdout，方便脚本读取：
-
-```bash
-font="$(tsp fonts)"
-```
+右侧显示家族名、样式、带 ASCII 字形示例（与 kitty `choose-fonts` 相同，按面板宽度自动换成多行）的 `preview` 区块，以及 PostScript 名和源文件。所选字体缺失的字符会被略去；ASCII 覆盖不足或没有可缩放轮廓的字体会退回文本示例。`Enter` 会把选中的家族名打印到 stdout；在 alacritty 内则直接把所选家族保存到 alacritty 配置（`alacritty.toml`）：自动匹配 normal、bold、italic、bold italic 四个样式，以统一的内联写法写入 `[font]` 表（例如 `normal = { family = 'Maple Mono NF', style = 'Regular' }`），并生成 `<config>.bck` 备份；alacritty 会自动重载配置。旧版本写出的 `[font.normal]` 等独立表会一并合并成这种写法。家族缺少某个样式时不会写入对应项，并会清掉配置里遗留的同名字体（例如把 normal 换成 Cascadia Mono NF 后，其它样式里旧的 JetBrainsMono Nerd Font 会被移除），由 alacritty 自行合成。其它终端仍只打印家族名；配置或目录不存在时会新建。
 
 在能响应图形能力查询的终端中——Kitty graphics 协议（kitty、Ghostty、WezTerm 以及其他基于 libghostty 的终端）或 iTerm2 inline image 协议（iTerm2、开启 `terminal.integrated.enableImages` 的 VS Code）——示例会用所选字体栅格化成图片并贴到右侧，是真实预览。启动浏览器前会直接向终端查询能力；对不响应查询的终端（部分 VS Code 系终端只实现了 inline image 而不响应查询）再用环境变量兜底。图片背景透明，字形颜色会根据终端上报的背景色（无法获取时回退 `COLORFGBG`）自动选择深色或浅色，因此在明/暗主题下都清晰可读，也不会出现色块。其他终端与 tmux 会退回用终端当前字体绘制的文本示例，并在界面中说明。Windows 上，控制台程序的输出要经过 ConPTY，而 ConPTY 通常会丢弃图形转义序列，因此只有自带 ConPTY 并会转发这些序列的终端才能显示图片预览（Otty 可以；尚未处理 ConPTY 的旧版 WezTerm 会退回文本示例）。对这类终端可用 `TSP_GRAPHICS=1` 强制启用图形。`TSP_GRAPHICS=0` 可强制文本回退。
 
@@ -220,7 +216,7 @@ font="$(tsp fonts)"
 | `g` / `G`、`Home` / `End` | 跳到首尾 |
 | 直接输入 或 `/` | 按家族名过滤 |
 | `Esc` | 清空过滤（并退出输入状态） |
-| `Enter` | 输出家族名并退出 |
+| `Enter` | 输出家族名并退出（在 alacritty 内则写入配置） |
 | `q`、`Ctrl+C` | 退出 |
 
 ## 主题预览是怎么生成的
@@ -246,7 +242,7 @@ font="$(tsp fonts)"
 - 自定义目录不存在不影响使用，只是 Custom 页为空
 - 主题预览是静态快照：依赖外部工具或运行时的内容（virtualenv、kube 上下文、时间等）可能显示为空或旧值，按 `r` 可重新渲染
 - 设置主题只改写 `.zshrc` 或 shell profile，不会影响当前已经打开的 shell
-- `tsp fonts` 用 `q` 退出时不会输出任何内容；只有 `Enter` 会打印家族名
+- `tsp fonts` 用 `q` 退出时不会输出任何内容；只有 `Enter` 会打印家族名（在 alacritty 内则是写入配置并输出保存路径）
 - 字体示例使用 `golang.org/x/image` 栅格化，不会应用连字、样式集等 OpenType 特性
 
 ## 发布

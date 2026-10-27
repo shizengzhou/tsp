@@ -9,6 +9,69 @@ import (
 	"golang.org/x/image/font/sfnt"
 )
 
+func TestFamilySlots(t *testing.T) {
+	family := Family{Name: "Slots", Faces: []Face{
+		{Family: "Slots", Style: "Regular", PostScript: "Slots-Regular"},
+		{Family: "Slots", Style: "Bold", PostScript: "Slots-Bold"},
+		{Family: "Slots", Style: "Italic", PostScript: "Slots-Italic"},
+		{Family: "Slots", Style: "Bold Italic", PostScript: "Slots-BoldItalic"},
+	}}
+
+	slots := family.Slots()
+	want := map[string]string{
+		SlotNormal:     "Slots-Regular",
+		SlotBold:       "Slots-Bold",
+		SlotItalic:     "Slots-Italic",
+		SlotBoldItalic: "Slots-BoldItalic",
+	}
+	if len(slots) != 4 {
+		t.Fatalf("got %d slots, want 4", len(slots))
+	}
+	for _, slot := range slots {
+		if slot.Face.PostScript != want[slot.Name] {
+			t.Errorf("slot %s = %q, want %q", slot.Name, slot.Face.PostScript, want[slot.Name])
+		}
+	}
+	if slots[0].Label != "Normal" || slots[3].Label != "Bold Italic" {
+		t.Errorf("labels = %q, %q", slots[0].Label, slots[3].Label)
+	}
+}
+
+func TestFamilySlotsMatchesByStyleWord(t *testing.T) {
+	family := Family{Name: "Maple", Faces: []Face{
+		{Family: "Maple", Style: "Regular", PostScript: "Maple-Regular"},
+		{Family: "Maple", Style: "SemiBold", PostScript: "Maple-SemiBold"},
+		{Family: "Maple", Style: "SemiBoldItalic", PostScript: "Maple-SemiBoldItalic"},
+	}}
+
+	slots := family.Slots()
+	if slots[1].Face.PostScript != "Maple-SemiBold" {
+		t.Errorf("bold slot = %q, want Maple-SemiBold", slots[1].Face.PostScript)
+	}
+	if slots[2].Face.PostScript != "" {
+		t.Errorf("italic slot = %q, want no face", slots[2].Face.PostScript)
+	}
+	if slots[3].Face.PostScript != "Maple-SemiBoldItalic" {
+		t.Errorf("bold italic slot = %q, want Maple-SemiBoldItalic", slots[3].Face.PostScript)
+	}
+}
+
+func TestFamilySlotsWithoutStyles(t *testing.T) {
+	family := Family{Name: "Plain", Faces: []Face{
+		{Family: "Plain", Style: "Regular", PostScript: "Plain-Regular"},
+	}}
+
+	slots := family.Slots()
+	if slots[0].Face.PostScript != "Plain-Regular" {
+		t.Errorf("normal slot = %q, want Plain-Regular", slots[0].Face.PostScript)
+	}
+	for _, slot := range slots[1:] {
+		if slot.Face.PostScript != "" {
+			t.Errorf("slot %s = %q, want no face", slot.Name, slot.Face.PostScript)
+		}
+	}
+}
+
 func TestGroupFamilies(t *testing.T) {
 	faces := []Face{
 		{Family: "Beta", Style: "Bold", PostScript: "Beta-Bold", Path: "/fonts/beta-bold.ttf"},

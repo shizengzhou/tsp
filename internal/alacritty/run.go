@@ -67,6 +67,12 @@ func Run(opts Options) error {
 	return err
 }
 
+// RunningInAlacritty reports whether tsp runs inside alacritty, so commands
+// outside this package can decide whether a setting can be saved to its config.
+func RunningInAlacritty() bool {
+	return isAlacrittyTerminal()
+}
+
 // isAlacrittyTerminal reports whether the browser runs inside alacritty. The
 // environment variables are checked first; on Windows, where ConPTY resets TERM
 // and alacritty sets none of them, the process ancestry is used instead.

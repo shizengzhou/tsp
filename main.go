@@ -18,7 +18,7 @@ Usage:
   tsp themes [flags]        browse and apply alacritty color themes
   tsp omz themes [flags]    browse and preview oh-my-zsh themes
   tsp omp themes [flags]    browse and preview oh-my-posh themes
-  tsp fonts                 browse installed monospaced fonts and print the chosen family
+  tsp fonts [flags]         browse monospaced fonts, print or save the chosen family
   tsp version               print the tsp version
   tsp update                update tsp to the latest release
 
@@ -95,10 +95,12 @@ const fontsUsage = `Usage:
 
 Browse installed monospaced font families: the family list is on the left,
 styles and a glyph sample on the right. Enter prints the chosen family name to
-stdout.
+stdout. When tsp runs inside alacritty, Enter instead saves the family's
+normal, bold, italic and bold italic faces to alacritty.toml (a .bck backup of
+the config is kept and alacritty reloads it automatically).
 
 Keys:
-  ↑/↓ j/k   move        /   filter       ⏎  choose & print
+  ↑/↓ j/k   move        /   filter       ⏎  choose
   q         quit        esc clear filter
 `
 
@@ -153,7 +155,45 @@ func runFonts(args []string) error {
 			return fmt.Errorf("unexpected argument %q", args[0])
 		}
 	}
-	return fonts.RunFonts(fonts.Options{})
+
+	// Inside alacritty the choice can be saved to its config; everywhere else
+	// the family name is printed so it stays scriptable.
+	if !alacritty.RunningInAlacritty() {
+		return fonts.RunFonts(fonts.Options{})
+	}
+	configPath, err := alacritty.ConfigFile()
+	if err != nil {
+		return err
+	}
+
+	opts := fonts.Options{
+		ChooseHint: "Press Enter to save this font to alacritty",
+		Apply: func(choice fonts.Choice) (string, error) {
+			return alacritty.SetFonts(fontSlots(choice), configPath)
+		},
+	}
+	return fonts.RunFonts(opts)
+}
+
+// fontSlots converts the picked faces to alacritty's font tables, skipping
+// styles the family does not provide.
+func fontSlots(choice fonts.Choice) []alacritty.FontSlot {
+	slots := make([]alacritty.FontSlot, 0, len(choice.Slots))
+	for _, slot := range choice.Slots {
+		if slot.Face.Family == "" && slot.Face.PostScript == "" {
+			continue
+		}
+		family := slot.Face.Family
+		if family == "" {
+			family = choice.Family
+		}
+		slots = append(slots, alacritty.FontSlot{
+			Name:   slot.Name,
+			Family: family,
+			Style:  slot.Face.Style,
+		})
+	}
+	return slots
 }
 
 func runThemes(args []string) error {

@@ -152,6 +152,36 @@ func TestFontViewLayout(t *testing.T) {
 	}
 }
 
+func TestFontSaveModeChoosesSlotsDirectly(t *testing.T) {
+	family := Family{Name: "Slots", Faces: []Face{
+		{Family: "Slots", Style: "Regular", PostScript: "Slots-Regular", Path: "/fonts/slots.ttf"},
+		{Family: "Slots", Style: "Bold", PostScript: "Slots-Bold", Path: "/fonts/slots-bold.ttf"},
+	}}
+	m := NewUI([]Family{family})
+	m.saveMode = true
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 20})
+
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if m.chosen != "Slots" {
+		t.Errorf("chosen = %q, want Slots", m.chosen)
+	}
+	if len(m.chosenSlots) != 4 {
+		t.Fatalf("chosenSlots = %d, want the four style slots", len(m.chosenSlots))
+	}
+	if got := m.chosenSlots[0].Face.PostScript; got != "Slots-Regular" {
+		t.Errorf("normal slot = %q, want Slots-Regular", got)
+	}
+	if got := m.chosenSlots[1].Face.PostScript; got != "Slots-Bold" {
+		t.Errorf("bold slot = %q, want Slots-Bold", got)
+	}
+	if cmd == nil {
+		t.Fatal("enter returned no command")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Errorf("enter command returned %T, want tea.QuitMsg", cmd())
+	}
+}
+
 func TestShortPath(t *testing.T) {
 	home := "/Users/me"
 	if got := shortPath(home+"/Library/Fonts/Menlo.ttc", home, 40); got != "~/Library/Fonts/Menlo.ttc" {

@@ -10,7 +10,7 @@ A collection of small tools for previewing terminal settings:
 
 - `tsp omz themes` — oh-my-zsh theme browser with a live prompt preview; `Enter` applies a theme via `omz theme set`
 - `tsp omp themes` — oh-my-posh theme browser with a live prompt preview; `Enter` rewrites the `oh-my-posh init` line of your shell profile
-- `tsp fonts` — installed monospaced font family browser with styles and a glyph sample; `Enter` prints the chosen family name
+- `tsp fonts` — installed monospaced font family browser with styles and a glyph sample; `Enter` prints the chosen family name, or saves it to alacritty's config when running inside alacritty
 - `tsp themes` — alacritty color theme browser with a live palette and code preview; `Enter` applies the theme through `general.import`
 
 ## Requirements
@@ -221,11 +221,7 @@ Lists every installed monospaced font family it can parse; proportional faces ar
 - Linux: `~/.fonts`, `~/.local/share/fonts`, `/usr/local/share/fonts`, `/usr/share/fonts`
 - Windows: `%WINDIR%\Fonts`, `%LOCALAPPDATA%\Microsoft\Windows\Fonts`
 
-The right pane shows the family name, its styles, a `preview` block with the ASCII glyph sample used by kitty's `choose-fonts` — wrapped onto as many lines as the pane width needs — and the PostScript name and source file. Characters the selected font does not provide are omitted; fonts without enough scalable ASCII coverage fall back to the text sample. `Enter` prints the selected family name to stdout, which makes it scriptable:
-
-```bash
-font="$(tsp fonts)"
-```
+The right pane shows the family name, its styles, a `preview` block with the ASCII glyph sample used by kitty's `choose-fonts` — wrapped onto as many lines as the pane width needs — and the PostScript name and source file. Characters the selected font does not provide are omitted; fonts without enough scalable ASCII coverage fall back to the text sample. `Enter` prints the selected family name to stdout; inside alacritty it instead saves the chosen family to `alacritty.toml` directly: the normal, bold, italic and bold italic styles are matched automatically and written as inline tables inside `[font]` (for example `normal = { family = 'Maple Mono NF', style = 'Regular' }`), with a `<config>.bck` backup; alacritty reloads the config automatically. Separate `[font.normal]` tables written by older versions are folded into that form. A style the family does not provide is removed instead of written — switching normal to Cascadia Mono NF also drops the old JetBrainsMono Nerd Font from the bold, italic and bold italic slots — and alacritty synthesizes it. Elsewhere the family name is still printed; a missing config or directory is created.
 
 In terminals that answer a graphics capability query — the Kitty graphics protocol (kitty, Ghostty, WezTerm and other libghostty-based terminals) or iTerm2's inline image protocol (iTerm2, VS Code with `terminal.integrated.enableImages`) — the sample is rasterized from the selected font and placed in the pane, so it is a real preview. The terminal is queried directly before the browser starts; environment variables back this up for terminals that do not answer the query (some VS Code-based terminals implement inline images without replying). The image has a transparent background and its glyph color follows the terminal's reported background (falling back to `COLORFGBG`), so it stays readable on light and dark themes instead of drawing a colored card. Elsewhere (other terminals, tmux) the pane falls back to a text sample drawn with your terminal's current font and says so. On Windows, console programs reach the terminal through ConPTY, which normally swallows graphics escapes, so images only appear in terminals whose ConPTY forwards them — Otty does; WezTerm builds from before its ConPTY workarounds do not and fall back to the text sample. `TSP_GRAPHICS=1` forces graphics there for terminals that work around this (a recent WezTerm nightly, for example). `TSP_GRAPHICS=0` forces the text fallback.
 
@@ -236,7 +232,7 @@ In terminals that answer a graphics capability query — the Kitty graphics prot
 | `g` / `G`, `Home` / `End` | Jump to first / last |
 | Start typing, or `/` | Filter by family name |
 | `Esc` | Clear the filter (and leave input mode) |
-| `Enter` | Print the selected family name and quit |
+| `Enter` | Print the selected family name and quit, or save it when running inside alacritty |
 | `q`, `Ctrl+C` | Quit |
 
 ## How theme previews are rendered

@@ -46,7 +46,13 @@ type UI struct {
 	cursor    int
 	offset    int
 
-	chosen string
+	chosen      string
+	chooseHint  string
+	chosenSlots []Slot
+
+	// saveMode makes Enter save the family's style slots instead of printing
+	// the family name.
+	saveMode bool
 
 	protocol    imageProtocol
 	foreground  color.RGBA
@@ -70,6 +76,7 @@ func NewUI(families []Family) *UI {
 		home:       home,
 		foreground: previewTextColor(),
 		cellAspect: defaultCellAspect,
+		chooseHint: "Press Enter to choose this family",
 		images:     make(map[string]imageResult),
 	}
 }
@@ -202,6 +209,9 @@ func (m *UI) choose() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.chosen = family.Name
+	if m.saveMode {
+		m.chosenSlots = family.Slots()
+	}
 	return m, tea.Quit
 }
 
@@ -435,7 +445,7 @@ func (m *UI) previewView(width, height int, includeImage bool) ([]string, *image
 
 	add(rightAlign(styleAccent.Bold(true).Render(ansi.Truncate(family.Name, width-2, "…")), width))
 	add(" " + styleMuted.Render("Styles: ") + strings.Join(family.Styles(), ", "))
-	add(" " + styleMuted.Render("Press Enter to choose this family"))
+	add(" " + styleMuted.Render(m.chooseHint))
 	add("")
 	add(styleFaint.Render(previewRule(width, "preview")))
 
