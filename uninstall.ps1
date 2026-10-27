@@ -161,6 +161,16 @@ try {
     Remove-Item -LiteralPath $target -Force
     Write-Host "  removed $target"
 
+    # tsp update renames the running binary to tsp.exe.old on Windows; drop the
+    # leftover too, otherwise the directory never becomes empty.
+    $stale = Join-Path $InstallDir 'tsp.exe.old'
+    if (Test-Path -LiteralPath $stale) {
+        Remove-Item -LiteralPath $stale -Force -ErrorAction SilentlyContinue
+        if (-not (Test-Path -LiteralPath $stale)) {
+            Write-Host "  removed $stale"
+        }
+    }
+
     # Keep the directory when other tools live in it, so uninstalling tsp never
     # breaks them or their PATH entry.
     $remaining = @(Get-ChildItem -LiteralPath $InstallDir -Force -ErrorAction SilentlyContinue)

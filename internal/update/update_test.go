@@ -214,3 +214,22 @@ func TestBinaryName(t *testing.T) {
 		}
 	}
 }
+
+func TestRemoveOld(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "tsp.exe")
+	old := target + ".old"
+	if err := os.WriteFile(old, []byte("previous"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	removeOld(target)
+
+	if _, err := os.Stat(old); !os.IsNotExist(err) {
+		t.Fatalf("removeOld left %s behind: %v", old, err)
+	}
+
+	// The next update renames the running binary there, so a missing file and a
+	// still locked file must both stay quiet.
+	removeOld(target)
+}

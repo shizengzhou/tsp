@@ -103,6 +103,9 @@ Keys:
 `
 
 func main() {
+	// A Windows self update leaves the replaced binary behind as tsp.exe.old,
+	// since it was the running executable and stayed locked until exit.
+	update.CleanupStale()
 	if err := run(os.Args[1:]); err != nil {
 		if err == flag.ErrHelp {
 			return

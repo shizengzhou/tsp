@@ -316,9 +316,31 @@ func binaryName(path string) string {
 	return ""
 }
 
+// CleanupStale removes the leftover binary that a Windows self update cannot
+// delete: the running executable is renamed to .old and stays locked until the
+// process exits. It is called on every run, so the file is reaped by the next
+// tsp invocation. Best effort: a file still locked by an older process is left
+// for a later run.
+func CleanupStale() {
+	if runtime.GOOS != "windows" {
+		return
+	}
+	target, err := targetPath("")
+	if err != nil {
+		return
+	}
+	removeOld(target)
+}
+
+// removeOld drops the .old file next to target, if any. Errors are ignored
+// because a running binary can keep the file locked on Windows.
+func removeOld(target string) {
+	_ = os.Remove(target + ".old")
+}
+
 // replace writes the new binary over target atomically. On Windows the running
-// executable cannot be deleted, so it is renamed out of the way first and the
-// leftover .old file is removed on the next update.
+// executable cannot be deleted, so it is renamed out of the way first; the
+// leftover .old file is removed by CleanupStale on the next run.
 func replace(target string, binary []byte) error {
 	dir := filepath.Dir(target)
 	tmp, err := os.CreateTemp(dir, ".tsp-update-*")
@@ -341,7 +363,7 @@ func replace(target string, binary []byte) error {
 
 	if runtime.GOOS == "windows" {
 		old := target + ".old"
-		_ = os.Remove(old)
+		removeOld(target)
 		if err := os.Rename(target, old); err != nil {
 			return err
 		}
@@ -349,7 +371,7 @@ func replace(target string, binary []byte) error {
 			_ = os.Rename(old, target)
 			return err
 		}
-		_ = os.Remove(old)
+		removeOld(target)
 		return nil
 	}
 
