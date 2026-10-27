@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -18,24 +19,34 @@ import (
 
 // The alacritty ports of the iTerm2-Color-Schemes project are downloaded on
 // first use. Only the alacritty directory is fetched (one request per theme),
-// never the whole multi-hundred-megabyte repository.
+// never the whole multi-hundred-megabyte repository. The directory listing
+// comes from the GitHub tree page instead of the REST API, whose unauthenticated
+// quota is 60 requests per hour per IP.
 var (
-	themesAPIURL = "https://api.github.com/repos/mbadolato/iTerm2-Color-Schemes"
-	themesRawURL = "https://raw.githubusercontent.com/mbadolato/iTerm2-Color-Schemes/master/alacritty"
+	themesPageURL = "https://github.com/mbadolato/iTerm2-Color-Schemes/tree/master/alacritty"
+	themesRawURL  = "https://raw.githubusercontent.com/mbadolato/iTerm2-Color-Schemes/master/alacritty"
 
 	httpClient = &http.Client{Timeout: 30 * time.Second}
 )
 
 const downloadWorkers = 12
 
-type treeEntry struct {
+// embeddedDataPattern matches the JSON that GitHub renders into tree pages and
+// that holds the file listing.
+var embeddedDataPattern = regexp.MustCompile(`(?s)<script[^>]*data-target="react-app\.embeddedData"[^>]*>(.*?)</script>`)
+
+type treeItem struct {
 	Path string `json:"path"`
-	Type string `json:"type"`
-	SHA  string `json:"sha"`
 }
 
-type treeResponse struct {
-	Tree []treeEntry `json:"tree"`
+type treePage struct {
+	Payload struct {
+		CodeViewTreeRoute struct {
+			Tree struct {
+				Items []treeItem `json:"items"`
+			} `json:"tree"`
+		} `json:"codeViewTreeRoute"`
+	} `json:"payload"`
 }
 
 // EnsureThemes populates dir with alacritty color themes unless it already
@@ -80,69 +91,45 @@ func EnsureThemes(dir string, progress func(saved, total int)) error {
 // remoteThemeNames lists the .toml files in the alacritty directory of the
 // iTerm2-Color-Schemes repository.
 func remoteThemeNames() ([]string, error) {
-	root, err := fetchTree(themesAPIURL + "/git/trees/master")
+	resp, err := httpClient.Get(themesPageURL)
 	if err != nil {
-		return nil, err
-	}
-	sha := ""
-	for _, entry := range root.Tree {
-		if entry.Path == "alacritty" && entry.Type == "tree" {
-			sha = entry.SHA
-			break
-		}
-	}
-	if sha == "" {
-		return nil, errors.New("the iTerm2-Color-Schemes repository has no alacritty directory")
-	}
-
-	sub, err := fetchTree(themesAPIURL + "/git/trees/" + url.PathEscape(sha))
-	if err != nil {
-		return nil, err
-	}
-	names := make([]string, 0, len(sub.Tree))
-	for _, entry := range sub.Tree {
-		if entry.Type == "blob" && strings.HasSuffix(strings.ToLower(entry.Path), ".toml") {
-			names = append(names, entry.Path)
-		}
-	}
-	sort.Strings(names)
-	return names, nil
-}
-
-func fetchTree(rawURL string) (treeResponse, error) {
-	req, err := http.NewRequest(http.MethodGet, rawURL, nil)
-	if err != nil {
-		return treeResponse{}, err
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "tsp")
-
-	resp, err := httpClient.Do(req)
-	if err != nil {
-		return treeResponse{}, fmt.Errorf("fetch %s: %w", rawURL, err)
+		return nil, fmt.Errorf("fetch %s: %w", themesPageURL, err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 8<<20))
 	if err != nil {
-		return treeResponse{}, fmt.Errorf("read %s: %w", rawURL, err)
+		return nil, fmt.Errorf("read %s: %w", themesPageURL, err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return treeResponse{}, fmt.Errorf("fetch %s: %s", rawURL, githubStatus(resp.StatusCode, body))
+		return nil, fmt.Errorf("fetch %s: http %d", themesPageURL, resp.StatusCode)
 	}
 
-	var tree treeResponse
-	if err := json.Unmarshal(body, &tree); err != nil {
-		return treeResponse{}, fmt.Errorf("decode %s: %w", rawURL, err)
+	match := embeddedDataPattern.FindSubmatch(body)
+	if match == nil {
+		return nil, errors.New("could not find the alacritty directory listing")
 	}
-	return tree, nil
-}
+	var page treePage
+	if err := json.Unmarshal(match[1], &page); err != nil {
+		return nil, fmt.Errorf("decode %s: %w", themesPageURL, err)
+	}
 
-func githubStatus(code int, body []byte) string {
-	if code == http.StatusForbidden && strings.Contains(string(body), "rate limit") {
-		return "GitHub API rate limit exceeded, try again later"
+	const prefix = "alacritty/"
+	names := make([]string, 0, len(page.Payload.CodeViewTreeRoute.Tree.Items))
+	for _, item := range page.Payload.CodeViewTreeRoute.Tree.Items {
+		name := strings.TrimPrefix(item.Path, prefix)
+		if name == item.Path || strings.Contains(name, "/") {
+			continue
+		}
+		if strings.HasSuffix(strings.ToLower(name), ".toml") {
+			names = append(names, name)
+		}
 	}
-	return fmt.Sprintf("http %d", code)
+	if len(names) == 0 {
+		return nil, errors.New("no alacritty themes found in the iTerm2-Color-Schemes repository")
+	}
+	sort.Strings(names)
+	return names, nil
 }
 
 func downloadThemes(dir string, names []string, progress func(saved, total int)) error {

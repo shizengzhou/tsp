@@ -6,7 +6,6 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -20,7 +19,6 @@ import (
 
 const (
 	defaultBaseURL = "https://github.com/shizengzhou/tsp"
-	defaultAPIURL  = "https://api.github.com/repos/shizengzhou/tsp/releases/latest"
 )
 
 // Options controls the self update.
@@ -28,7 +26,6 @@ type Options struct {
 	CurrentVersion string
 	Target         string
 	BaseURL        string
-	APIURL         string
 	Out            io.Writer
 }
 
@@ -40,7 +37,6 @@ func Run(opts Options) error {
 	}
 
 	baseURL := firstNonEmpty(opts.BaseURL, os.Getenv("TSP_BASE_URL"), defaultBaseURL)
-	apiURL := firstNonEmpty(opts.APIURL, os.Getenv("TSP_API_URL"), defaultAPIURL)
 	baseURL = strings.TrimRight(baseURL, "/")
 
 	target, err := targetPath(opts.Target)
@@ -48,7 +44,7 @@ func Run(opts Options) error {
 		return err
 	}
 
-	tag, err := latestTag(apiURL)
+	tag, err := latestTag(baseURL)
 	if err != nil {
 		return err
 	}
@@ -142,41 +138,37 @@ func targetPath(explicit string) (string, error) {
 	return path, nil
 }
 
-func latestTag(apiURL string) (string, error) {
-	req, err := http.NewRequest(http.MethodGet, apiURL, nil)
+// latestTag finds the newest release tag without the GitHub API, whose
+// unauthenticated quota is 60 requests per hour per IP and is shared by every
+// user behind the same address. GitHub answers <repo>/releases/latest with a
+// redirect to <repo>/releases/tag/<tag>, so the tag comes from Location and
+// costs no API quota.
+func latestTag(baseURL string) (string, error) {
+	req, err := http.NewRequest(http.MethodGet, baseURL+"/releases/latest", nil)
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "tsp")
 
-	resp, err := httpClient.Do(req)
+	resp, err := redirectClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("check the latest release: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode != http.StatusOK {
-		if resp.StatusCode == http.StatusForbidden && strings.Contains(string(body), "rate limit") {
-			return "", errors.New("GitHub API rate limit exceeded, try again later")
-		}
-		return "", fmt.Errorf("check the latest release: http %d", resp.StatusCode)
-	}
-
-	var release struct {
-		TagName string `json:"tag_name"`
-	}
-	if err := json.Unmarshal(body, &release); err != nil {
-		return "", fmt.Errorf("decode the latest release: %w", err)
-	}
-	if release.TagName == "" {
+	if resp.StatusCode == http.StatusNotFound {
 		return "", errors.New("no releases found")
 	}
-	return release.TagName, nil
+	location := resp.Header.Get("Location")
+	if location == "" {
+		return "", fmt.Errorf("check the latest release: http %d", resp.StatusCode)
+	}
+	if i := strings.LastIndex(location, "/releases/tag/"); i >= 0 {
+		if tag := strings.TrimRight(location[i+len("/releases/tag/"):], "/"); tag != "" {
+			return tag, nil
+		}
+	}
+	return "", errors.New("could not find the latest release tag")
 }
 
 func archiveName(version string) string {
@@ -379,3 +371,12 @@ func replace(target string, binary []byte) error {
 }
 
 var httpClient = &http.Client{Timeout: 60 * time.Second}
+
+// redirectClient keeps the redirect response instead of following it, because
+// the release tag is carried in its Location header.
+var redirectClient = &http.Client{
+	Timeout: 30 * time.Second,
+	CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}

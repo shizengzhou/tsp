@@ -132,7 +132,7 @@ tsp version
 tsp update
 ```
 
-`tsp version` prints the build version (`dev` for local builds, the release tag for downloaded binaries). `tsp update` checks the latest GitHub release, downloads the matching archive for the current OS/architecture, verifies it against the release checksums, and replaces the running binary in place. Use `sudo tsp update` when tsp lives in a directory you cannot write to, or re-run the install script. `TSP_BASE_URL` and `TSP_API_URL` override the download and API endpoints, like the install scripts.
+`tsp version` prints the build version (`dev` for local builds, the release tag for downloaded binaries). `tsp update` checks the latest GitHub release, downloads the matching archive for the current OS/architecture, verifies it against the release checksums, and replaces the running binary in place. Use `sudo tsp update` when tsp lives in a directory you cannot write to, or re-run the install script. The latest tag comes from a plain GET of `<repo>/releases/latest` (the redirect target), so it never uses the GitHub API quota; `TSP_BASE_URL` overrides that repository URL and the download endpoint, like the install scripts.
 
 ### Themes
 

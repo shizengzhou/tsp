@@ -116,7 +116,7 @@ tsp version
 tsp update
 ```
 
-`tsp version` 打印构建版本（本地构建为 `dev`，发布包为对应的 tag）。`tsp update` 会检查 GitHub 最新 release，按当前系统/架构下载对应压缩包，用 release 的校验和验证后原地替换当前二进制。若 tsp 所在目录不可写，可用 `sudo tsp update`，或重新运行安装脚本。`TSP_BASE_URL`、`TSP_API_URL` 可覆盖下载与 API 地址，与安装脚本一致。
+`tsp version` 打印构建版本（本地构建为 `dev`，发布包为对应的 tag）。`tsp update` 会检查 GitHub 最新 release，按当前系统/架构下载对应压缩包，用 release 的校验和验证后原地替换当前二进制。若 tsp 所在目录不可写，可用 `sudo tsp update`，或重新运行安装脚本。最新 tag 通过普通 GET `<repo>/releases/latest`（从其 302 跳转读取）获得，不占用 GitHub API 限额；`TSP_BASE_URL` 可覆盖仓库地址与下载地址，与安装脚本一致。
 
 ### 主题
 

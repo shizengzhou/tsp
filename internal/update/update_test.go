@@ -70,8 +70,8 @@ func TestRunReplacesBinary(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/api/latest":
-			fmt.Fprint(w, `{"tag_name":"v9.9.9"}`)
+		case "/releases/latest":
+			http.Redirect(w, r, "/releases/tag/v9.9.9", http.StatusFound)
 		case "/releases/download/v9.9.9/" + name:
 			w.Write(archive)
 		case "/releases/download/v9.9.9/checksums.txt":
@@ -92,7 +92,6 @@ func TestRunReplacesBinary(t *testing.T) {
 		CurrentVersion: "0.1.0",
 		Target:         target,
 		BaseURL:        server.URL,
-		APIURL:         server.URL + "/api/latest",
 		Out:            &out,
 	})
 	if err != nil {
@@ -122,8 +121,8 @@ func TestRunAlreadyUpToDate(t *testing.T) {
 	requests := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests++
-		if r.URL.Path == "/api/latest" {
-			fmt.Fprint(w, `{"tag_name":"v1.0.0"}`)
+		if r.URL.Path == "/releases/latest" {
+			http.Redirect(w, r, "/releases/tag/v1.0.0", http.StatusFound)
 			return
 		}
 		http.NotFound(w, r)
@@ -140,7 +139,6 @@ func TestRunAlreadyUpToDate(t *testing.T) {
 		CurrentVersion: "1.0.0",
 		Target:         target,
 		BaseURL:        server.URL,
-		APIURL:         server.URL + "/api/latest",
 		Out:            &out,
 	})
 	if err != nil {
@@ -164,8 +162,8 @@ func TestRunRejectsChecksumMismatch(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/api/latest":
-			fmt.Fprint(w, `{"tag_name":"v2.0.0"}`)
+		case "/releases/latest":
+			http.Redirect(w, r, "/releases/tag/v2.0.0", http.StatusFound)
 		case "/releases/download/v2.0.0/" + name:
 			w.Write(archive)
 		case "/releases/download/v2.0.0/checksums.txt":
@@ -186,7 +184,6 @@ func TestRunRejectsChecksumMismatch(t *testing.T) {
 		CurrentVersion: "1.0.0",
 		Target:         target,
 		BaseURL:        server.URL,
-		APIURL:         server.URL + "/api/latest",
 		Out:            &out,
 	})
 	if err == nil || !strings.Contains(err.Error(), "checksum mismatch") {
@@ -195,6 +192,34 @@ func TestRunRejectsChecksumMismatch(t *testing.T) {
 	got, _ := os.ReadFile(target)
 	if string(got) != "old" {
 		t.Errorf("target was modified despite the failure: %q", got)
+	}
+}
+
+func TestLatestTagReadsTheRedirect(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/releases/latest" {
+			http.Redirect(w, r, "/releases/tag/v1.2.3", http.StatusFound)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	tag, err := latestTag(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tag != "v1.2.3" {
+		t.Errorf("latestTag() = %q, want v1.2.3", tag)
+	}
+}
+
+func TestLatestTagWithoutReleases(t *testing.T) {
+	server := httptest.NewServer(http.NotFoundHandler())
+	defer server.Close()
+
+	if _, err := latestTag(server.URL); err == nil || !strings.Contains(err.Error(), "no releases found") {
+		t.Errorf("latestTag() error = %v, want no releases found", err)
 	}
 }
 

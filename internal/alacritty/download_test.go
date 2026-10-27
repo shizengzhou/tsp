@@ -11,17 +11,14 @@ import (
 )
 
 func TestEnsureThemesDownloadsFromRepository(t *testing.T) {
-	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/git/trees/master":
-			fmt.Fprint(w, `{"tree":[{"path":"alacritty","type":"tree","sha":"abc123"}]}`)
-		case "/git/trees/abc123":
-			fmt.Fprint(w, `{"tree":[{"path":"A.toml","type":"blob"},{"path":"B Theme.toml","type":"blob"},{"path":"README.md","type":"blob"}]}`)
-		default:
-			http.NotFound(w, r)
-		}
+	page := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `<html><script type="application/json" data-target="react-app.embeddedData">`+
+			`{"payload":{"codeViewTreeRoute":{"tree":{"items":[`+
+			`{"path":"alacritty/A.toml"},{"path":"alacritty/B Theme.toml"},`+
+			`{"path":"alacritty/README.md"},{"path":"other/C.toml"}]}}}}`+
+			`</script></html>`)
 	}))
-	defer api.Close()
+	defer page.Close()
 
 	raw := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -35,10 +32,10 @@ func TestEnsureThemesDownloadsFromRepository(t *testing.T) {
 	}))
 	defer raw.Close()
 
-	originalAPI, originalRaw := themesAPIURL, themesRawURL
-	themesAPIURL, themesRawURL = api.URL, raw.URL
+	originalPage, originalRaw := themesPageURL, themesRawURL
+	themesPageURL, themesRawURL = page.URL, raw.URL
 	t.Cleanup(func() {
-		themesAPIURL, themesRawURL = originalAPI, originalRaw
+		themesPageURL, themesRawURL = originalPage, originalRaw
 	})
 
 	dir := filepath.Join(t.TempDir(), "themes")
@@ -65,9 +62,9 @@ func TestEnsureThemesDownloadsFromRepository(t *testing.T) {
 }
 
 func TestEnsureThemesKeepsExistingDirectory(t *testing.T) {
-	originalAPI := themesAPIURL
-	themesAPIURL = "http://127.0.0.1:1/never"
-	t.Cleanup(func() { themesAPIURL = originalAPI })
+	original := themesPageURL
+	themesPageURL = "http://127.0.0.1:1/never"
+	t.Cleanup(func() { themesPageURL = original })
 
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "keep.toml"), []byte(sampleTheme), 0o644); err != nil {
@@ -79,20 +76,39 @@ func TestEnsureThemesKeepsExistingDirectory(t *testing.T) {
 }
 
 func TestEnsureThemesReportsRemoteFailure(t *testing.T) {
-	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "rate limit exceeded", http.StatusForbidden)
+	page := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "forbidden", http.StatusForbidden)
 	}))
-	defer api.Close()
+	defer page.Close()
 
-	originalAPI := themesAPIURL
-	themesAPIURL = api.URL
-	t.Cleanup(func() { themesAPIURL = originalAPI })
+	original := themesPageURL
+	themesPageURL = page.URL
+	t.Cleanup(func() { themesPageURL = original })
 
 	dir := filepath.Join(t.TempDir(), "themes")
 	if err := EnsureThemes(dir, nil); err == nil {
-		t.Fatal("EnsureThemes() error = nil, want rate limit error")
-	} else if !strings.Contains(err.Error(), "rate limit") {
-		t.Errorf("error = %v, want a rate limit message", err)
+		t.Fatal("EnsureThemes() error = nil, want an http error")
+	} else if !strings.Contains(err.Error(), "http 403") {
+		t.Errorf("error = %v, want an http 403 message", err)
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Error("a failed download must not leave a themes directory behind")
+	}
+}
+
+func TestEnsureThemesReportsMissingListing(t *testing.T) {
+	page := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `<html><body>no embedded payload</body></html>`)
+	}))
+	defer page.Close()
+
+	original := themesPageURL
+	themesPageURL = page.URL
+	t.Cleanup(func() { themesPageURL = original })
+
+	dir := filepath.Join(t.TempDir(), "themes")
+	if err := EnsureThemes(dir, nil); err == nil || !strings.Contains(err.Error(), "directory listing") {
+		t.Fatalf("EnsureThemes() error = %v, want a missing listing error", err)
 	}
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
 		t.Error("a failed download must not leave a themes directory behind")

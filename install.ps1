@@ -22,8 +22,6 @@ param(
 
     [string]$BaseUrl = $env:TSP_BASE_URL,
 
-    [string]$ApiUrl = $env:TSP_API_URL,
-
     [switch]$Help
 )
 
@@ -56,8 +54,7 @@ session), so tsp can be run from any new terminal.
 Environment variables:
   TSP_VERSION      Same as -Version
   TSP_INSTALL_DIR  Same as -InstallDir
-  TSP_BASE_URL     Override the download base URL
-  TSP_API_URL      Override the GitHub API URL used to find the latest release
+  TSP_BASE_URL     Override the repository and download base URL
 '@
 }
 
@@ -82,6 +79,52 @@ function Set-RecordedInstallDir {
     $path = Get-InstallStatePath
     New-Item -ItemType Directory -Path (Split-Path -Parent $path) -Force | Out-Null
     [IO.File]::WriteAllText($path, $Directory)
+}
+
+# Get-LatestTag reads the tag from the redirect GitHub serves for
+# <repo>/releases/latest, so finding the latest release uses no GitHub API
+# quota. HttpWebRequest is used because Invoke-WebRequest does not expose the
+# Location header of a 3xx response consistently on 5.1 and 7.
+function Get-LatestTag {
+    param([Parameter(Mandatory = $true)][string]$Repository)
+
+    $request = [System.Net.HttpWebRequest]::Create("$Repository/releases/latest")
+    $request.AllowAutoRedirect = $false
+    $request.UserAgent = 'tsp-installer'
+    $request.Timeout = 30000
+
+    $response = $null
+    try {
+        $response = $request.GetResponse()
+    } catch [System.Net.WebException] {
+        $response = $_.Exception.Response
+        if (-not $response) {
+            throw
+        }
+    }
+    try {
+        $status = [int]$response.StatusCode
+        if ($status -eq 404) {
+            throw 'no releases found; pass -Version'
+        }
+        $location = $response.Headers['Location']
+        if (-not $location) {
+            throw "could not find the latest release at $Repository (http $status)"
+        }
+        $marker = '/releases/tag/'
+        $index = $location.LastIndexOf($marker)
+        if ($index -ge 0) {
+            $tag = $location.Substring($index + $marker.Length).TrimEnd('/')
+            if ($tag) {
+                return $tag
+            }
+        }
+        throw "could not read the latest release tag from $location"
+    } finally {
+        if ($response) {
+            $response.Close()
+        }
+    }
 }
 
 # Get-MergedPath returns the PATH value with the directory appended, or $null
@@ -156,10 +199,6 @@ try {
     }
     $BaseUrl = $BaseUrl.TrimEnd('/')
 
-    if (-not $ApiUrl) {
-        $ApiUrl = 'https://api.github.com/repos/shizengzhou/tsp/releases/latest'
-    }
-
     if (-not $InstallDir) {
         $InstallDir = Join-Path $HOME '.local\bin'
     }
@@ -185,11 +224,7 @@ try {
 
     if (-not $Version) {
         Write-Host '  resolving the latest release...'
-        $latest = Invoke-RestMethod -Uri $ApiUrl -Headers @{ 'User-Agent' = 'tsp-installer' } -UseBasicParsing
-        $Version = $latest.tag_name
-        if (-not $Version) {
-            throw 'no releases found; pass -Version'
-        }
+        $Version = Get-LatestTag -Repository $BaseUrl
     }
 
     if ($Version -notmatch '^v') {
