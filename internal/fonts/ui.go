@@ -56,7 +56,7 @@ type UI struct {
 
 	protocol    imageProtocol
 	foreground  color.RGBA
-	cellAspect  float64
+	cells       cellSize
 	images      map[string]imageResult
 	renderImage func(Family) imageResult
 }
@@ -75,7 +75,7 @@ func NewUI(families []Family) *UI {
 		families:   families,
 		home:       home,
 		foreground: previewTextColor(),
-		cellAspect: defaultCellAspect,
+		cells:      cellSize{aspect: defaultCellAspect},
 		chooseHint: "Press Enter to choose this family",
 		images:     make(map[string]imageResult),
 	}
@@ -339,7 +339,7 @@ func (m *UI) imageFor(family Family) imageResult {
 	face := family.Primary()
 	// The sample is wrapped to the preview pane, so the width is part of the
 	// cache key: a resize can change the number of lines.
-	key := fmt.Sprintf("%s\x00%s\x00%d\x00%d", family.Name, face.Path, face.Index, m.previewWidth())
+	key := fmt.Sprintf("%s\x00%s\x00%d\x00%d\x00%d\x00%d", family.Name, face.Path, face.Index, m.previewWidth(), m.cells.width, m.cells.height)
 	if result, ok := m.images[key]; ok {
 		return result
 	}
@@ -347,7 +347,7 @@ func (m *UI) imageFor(family Family) imageResult {
 	if m.renderImage != nil {
 		result = m.renderImage(family)
 	} else {
-		result = renderFamilyImage(family, m.foreground, m.previewWidth()-1, m.cellAspect)
+		result = renderFamilyImage(family, m.foreground, m.previewWidth()-1, m.cells)
 	}
 	m.images[key] = result
 	return result
@@ -453,7 +453,7 @@ func (m *UI) previewView(width, height int, includeImage bool) ([]string, *image
 	if includeImage {
 		img := m.imageFor(family)
 		if img.err == nil {
-			cols, rows := imageCells(img, width, m.cellAspect)
+			cols, rows := imageCells(img, width, m.cells)
 			if cols > 0 && rows > 0 {
 				// Reserve room for the image and the metadata block below it.
 				if height-len(lines)-7 >= rows {

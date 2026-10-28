@@ -31,6 +31,8 @@ type imageResult struct {
 const sampleText = "abcdefghijklmnopqrstuvwxyz 0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ !\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~"
 
 const (
+	// imageFontSize is the nominal point size used when the terminal does not
+	// report its cell pixel size.
 	imageFontSize = 34.0
 	imagePadding  = 2
 
@@ -43,9 +45,11 @@ const (
 )
 
 // renderFamilyImage rasterizes the sample text with the family's primary face.
-// The sample is wrapped into as many lines as needed so that each line fits
-// maxCols terminal columns when the image is placed one row per line.
-func renderFamilyImage(family Family, foreground color.RGBA, maxCols int, cellAspect float64) imageResult {
+// When the terminal reports its real cell pixel size, the face is rendered at
+// that size so the preview has the same pixel dimensions as the terminal's own
+// text. The sample is wrapped into as many lines as needed so that each line
+// fits maxCols terminal columns.
+func renderFamilyImage(family Family, foreground color.RGBA, maxCols int, cells cellSize) imageResult {
 	face := family.Primary()
 	if face.Path == "" {
 		return imageResult{err: errors.New("font has no source file")}
@@ -82,11 +86,7 @@ func renderFamilyImage(family Family, foreground color.RGBA, maxCols int, cellAs
 		return imageResult{err: errors.New("font has no scalable ASCII glyphs")}
 	}
 
-	opFace, err := opentype.NewFace(parsed, &opentype.FaceOptions{
-		Size:    imageFontSize,
-		DPI:     72,
-		Hinting: font.HintingFull,
-	})
+	opFace, err := newPreviewFace(parsed, cells)
 	if err != nil {
 		return imageResult{err: err}
 	}
@@ -94,15 +94,29 @@ func renderFamilyImage(family Family, foreground color.RGBA, maxCols int, cellAs
 
 	metrics := opFace.Metrics()
 	lineHeight := metrics.Height.Ceil()
-	lines := wrapSample(sample, opFace, maxCols, cellAspect, float64(lineHeight))
+	lines := wrapSample(sample, opFace, maxCols, cells, float64(lineHeight))
 	width := 0
 	for _, line := range lines {
 		if w := font.MeasureString(opFace, line).Ceil(); w > width {
 			width = w
 		}
 	}
-	imgWidth := width + imagePadding*2
-	imgHeight := lineHeight*len(lines) + imagePadding*2
+	// With a known cell size the canvas is exactly as tall as the rows it will
+	// occupy and its width is padded to whole cells, so the terminal maps it
+	// 1:1 without rescaling the glyphs.
+	padX, padY := imagePadding, imagePadding
+	if cells.width > 0 && cells.height > 0 {
+		padY = 0
+	}
+	imgWidth := width + padX*2
+	if cells.width > 0 {
+		cols := int(math.Ceil(float64(imgWidth) / float64(cells.width)))
+		if cols < 1 {
+			cols = 1
+		}
+		imgWidth = cols * cells.width
+	}
+	imgHeight := lineHeight*len(lines) + padY*2
 	if imgWidth <= 0 || imgHeight <= 0 {
 		return imageResult{err: errors.New("font produced an empty sample")}
 	}
@@ -117,7 +131,7 @@ func renderFamilyImage(family Family, foreground color.RGBA, maxCols int, cellAs
 		Face: opFace,
 	}
 	for i, line := range lines {
-		drawer.Dot = fixed.P(imagePadding, imagePadding+metrics.Ascent.Ceil()+i*lineHeight)
+		drawer.Dot = fixed.P(padX, padY+metrics.Ascent.Ceil()+i*lineHeight)
 		drawer.DrawString(line)
 	}
 
@@ -130,18 +144,61 @@ func renderFamilyImage(family Family, foreground color.RGBA, maxCols int, cellAs
 	return imageResult{png: buf.Bytes(), width: imgWidth, height: imgHeight, lines: len(lines)}
 }
 
-// wrapSample splits the sample into lines that each fit maxCols columns when
-// the image is drawn one row per line. The space a line has is derived from the
-// cell shape: a line one row tall spans cells*u in width, where u is the cell
-// height/width ratio, so limit = cols * lineHeight / aspect.
-func wrapSample(sample string, face font.Face, maxCols int, cellAspect, lineHeight float64) []string {
+// newPreviewFace builds a face whose line height matches the terminal's real
+// cell height when it is known, so the sample is rasterized at the same pixel
+// size as the terminal's own text instead of being scaled to it.
+func newPreviewFace(parsed *sfnt.Font, cells cellSize) (font.Face, error) {
+	size := imageFontSize
+	if cells.height > 0 {
+		reference, err := opentype.NewFace(parsed, &opentype.FaceOptions{
+			Size:    100,
+			DPI:     72,
+			Hinting: font.HintingFull,
+		})
+		if err == nil {
+			height := reference.Metrics().Height.Ceil()
+			reference.Close()
+			if height > 0 {
+				size = 100 * float64(cells.height) / float64(height)
+			}
+		}
+	}
+	if size < 1 {
+		size = 1
+	}
+	if size > 512 {
+		size = 512
+	}
+	return opentype.NewFace(parsed, &opentype.FaceOptions{
+		Size:    size,
+		DPI:     72,
+		Hinting: font.HintingFull,
+	})
+}
+
+// wrapSample splits the sample into lines that each fit maxCols columns. With
+// a known cell size the pixel width of a line is simply cols*cellWidth; without
+// it, the width is derived from the cell aspect ratio instead.
+func wrapSample(sample string, face font.Face, maxCols int, cells cellSize, lineHeight float64) []string {
 	if maxCols < 1 {
 		maxCols = 1
 	}
-	if cellAspect <= 0 {
-		cellAspect = defaultCellAspect
+	limit := float64(maxCols) * float64(cells.width)
+	if cells.width > 0 {
+		// Keep the horizontal padding inside the column budget so the padded
+		// canvas never spills into an extra cell.
+		limit -= 2 * imagePadding
+		if limit < 1 {
+			limit = 1
+		}
+	} else {
+		aspect := cells.aspect
+		if aspect <= 0 {
+			aspect = defaultCellAspect
+		}
+		limit = float64(maxCols) * lineHeight / aspect
 	}
-	return wrapLine(sample, face, float64(maxCols)*lineHeight/cellAspect)
+	return wrapLine(sample, face, limit)
 }
 
 // wrapLine wraps text into lines no wider than limit pixels, preferring to
@@ -245,22 +302,27 @@ func sampleForFont(f *sfnt.Font) (string, bool) {
 }
 
 // imageCells returns the placement rectangle (in terminal cells) for the
-// sample. Each of the image's lines is one row tall so every font gets the same
-// visual size; the width follows the image aspect ratio and the terminal's cell
-// shape so the glyphs are not stretched, and is capped to the pane so nothing
-// gets truncated.
-func imageCells(img imageResult, paneCols int, cellAspect float64) (cols, rows int) {
+// sample. With a known cell size each line already has the cell's pixel height,
+// so the width is just the image width in cells. Without it, the width follows
+// the image aspect ratio so the glyphs are not stretched, and is capped to the
+// pane so nothing gets truncated.
+func imageCells(img imageResult, paneCols int, cells cellSize) (cols, rows int) {
 	if img.width <= 0 || img.height <= 0 || paneCols <= 0 {
 		return 0, 0
-	}
-	if cellAspect <= 0 {
-		cellAspect = defaultCellAspect
 	}
 	rows = img.lines
 	if rows < 1 {
 		rows = 1
 	}
-	cols = int(math.Ceil(float64(img.width) / float64(img.height) * cellAspect * float64(rows)))
+	if cells.width > 0 {
+		cols = int(math.Ceil(float64(img.width) / float64(cells.width)))
+	} else {
+		aspect := cells.aspect
+		if aspect <= 0 {
+			aspect = defaultCellAspect
+		}
+		cols = int(math.Ceil(float64(img.width) / float64(img.height) * aspect * float64(rows)))
+	}
 	// Leave one column spare so the cursor can be parked after the image
 	// without sitting on the terminal's last cell (see imageEscapes).
 	if cols >= paneCols {

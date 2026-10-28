@@ -10,23 +10,20 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// ttyCellAspect derives the cell shape from the pixel size the pty reports for
-// the whole window. Zero means the terminal does not report pixel sizes.
-func ttyCellAspect() float64 {
+// ttyCellSize derives the pixel size of one cell from the pixel size the pty
+// reports for the whole window. Zero means the terminal does not report pixels.
+func ttyCellSize() (width, height int) {
 	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
 	if err != nil {
-		return 0
+		return 0, 0
 	}
 	defer tty.Close()
 
 	size, err := unix.IoctlGetWinsize(int(tty.Fd()), unix.TIOCGWINSZ)
 	if err != nil || size.Col == 0 || size.Row == 0 || size.Xpixel == 0 || size.Ypixel == 0 {
-		return 0
+		return 0, 0
 	}
-	return parseCellAspectValue(
-		float64(size.Ypixel)/float64(size.Row),
-		float64(size.Xpixel)/float64(size.Col),
-	)
+	return int(size.Xpixel / size.Col), int(size.Ypixel / size.Row)
 }
 
 // readResponse waits up to timeout for the terminal reply. Readiness is

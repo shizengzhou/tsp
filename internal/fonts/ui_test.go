@@ -222,7 +222,7 @@ func TestUIGraphicsPreview(t *testing.T) {
 	if got := len(strings.Split(view, "\n")); got != m.height {
 		t.Errorf("view has %d lines, want %d", got, m.height)
 	}
-	cols, _ := imageCells(imageResult{width: 800, height: 300}, m.previewWidth(), m.cellAspect)
+	cols, _ := imageCells(imageResult{width: 800, height: 300}, m.previewWidth(), m.cells)
 	for _, want := range []string{
 		fmt.Sprintf("a=T,f=100,i=1,p=1,q=2,C=1,c=%d,r=1", cols),
 		fmt.Sprintf("\x1b[%dC", cols),
@@ -255,7 +255,7 @@ func TestUIItermPreview(t *testing.T) {
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
 
 	view := m.View()
-	cols, _ := imageCells(imageResult{width: 800, height: 300}, m.previewWidth(), m.cellAspect)
+	cols, _ := imageCells(imageResult{width: 800, height: 300}, m.previewWidth(), m.cells)
 	for _, want := range []string{
 		fmt.Sprintf("\x1b]1337;File=inline=1;size=4;width=%d;height=1;preserveAspectRatio=1:", cols),
 		"preview rendered from the selected font",

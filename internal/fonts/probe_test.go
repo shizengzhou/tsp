@@ -111,21 +111,21 @@ func TestTextColorForBackground(t *testing.T) {
 	}
 }
 
-func TestParseCellAspect(t *testing.T) {
+func TestParseCellSize(t *testing.T) {
 	cases := []struct {
 		response string
-		want     float64
+		want     cellSize
 	}{
-		{"\x1b[6;36;18t", 2},
-		{"\x1b[6;27;18t", 1.5},
-		{"\x1b[6;0;18t", 0},
-		{"\x1b[6;36;0t", 0},
-		{"\x1b[6;36;18", 0},
-		{"\x1b[4;1000;2000t", 0},
+		{"\x1b[6;36;18t", cellSize{width: 18, height: 36, aspect: 2}},
+		{"\x1b[6;27;18t", cellSize{width: 18, height: 27, aspect: 1.5}},
+		{"\x1b[6;0;18t", cellSize{}},
+		{"\x1b[6;36;0t", cellSize{}},
+		{"\x1b[6;36;18", cellSize{}},
+		{"\x1b[4;1000;2000t", cellSize{}},
 	}
 	for _, tc := range cases {
-		if got := parseCellAspect([]byte(tc.response)); got != tc.want {
-			t.Errorf("parseCellAspect(%q) = %v, want %v", tc.response, got, tc.want)
+		if got := parseCellSize([]byte(tc.response)); got != tc.want {
+			t.Errorf("parseCellSize(%q) = %+v, want %+v", tc.response, got, tc.want)
 		}
 	}
 }

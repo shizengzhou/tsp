@@ -53,11 +53,11 @@ func runBrowser(families []Family, opts Options) error {
 		if background, ok := terminalBackgroundColor(); ok {
 			ui.foreground = textColorForBackground(background)
 		}
-		// Size the single preview row with the terminal's real cell shape;
-		// terminals whose cells are not the usual 1:2 otherwise stretch the
-		// sample and lose the font's proportions.
-		if aspect := terminalCellAspect(); aspect > 0 {
-			ui.cellAspect = aspect
+		// Render the sample at the terminal's real cell pixel size so it has
+		// the same dimensions as the terminal's own text; the cell aspect ratio
+		// alone is the fallback when the terminal does not report pixels.
+		if cells := terminalCellSize(); cells.height > 0 || cells.aspect > 0 {
+			ui.cells = cells
 		}
 	}
 

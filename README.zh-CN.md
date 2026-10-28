@@ -4,7 +4,7 @@
 
 [![Release](https://github.com/shizengzhou/tsp/actions/workflows/release.yml/badge.svg)](https://github.com/shizengzhou/tsp/actions/workflows/release.yml)
 
-[![tsp 演示](tsp.jpg)](https://youtu.be/sA8lwbAzxVU)
+[![tsp 演示](tsp.jpg)](https://youtu.be/tB8dpq3Hw1c)
 
 终端配置的预览小工具集合：
 
@@ -207,7 +207,7 @@ tsp fonts
 
 右侧显示家族名、样式、带 ASCII 字形示例的 `preview` 区块，以及 PostScript 名和源文件。所选字体缺失的字符会被略去；ASCII 覆盖不足或没有可缩放轮廓的字体会退回文本示例。`Enter` 会把选中的家族名打印到 stdout；在 alacritty 内则直接把所选家族保存到 alacritty 配置（`alacritty.toml`）：自动匹配 normal、bold、italic、bold italic 四个样式，以统一的内联写法写入 `[font]` 表（例如 `normal = { family = 'Maple Mono NF', style = 'Regular' }`），并生成 `<config>.bck` 备份；alacritty 会自动重载配置。旧版本写出的 `[font.normal]` 等独立表会一并合并成这种写法。家族缺少某个样式时不会写入对应项，并会清掉配置里遗留的同名字体（例如把 normal 换成 Cascadia Mono NF 后，其它样式里旧的 JetBrainsMono Nerd Font 会被移除），由 alacritty 自行合成。在 ghostty 内，`Enter` 会写入 `font-family`、`font-family-bold`、`font-family-italic` 与 `font-family-bold-italic`；每个列表都会先重置，因为 Ghostty 会把后面设置的值追加到前面配置文件的列表上；家族缺少的样式保持为空，由 Ghostty 从常规字体派生。其它终端仍只打印家族名；配置或目录不存在时会新建。
 
-在能响应图形能力查询的终端中——Kitty graphics 协议（kitty、Ghostty、WezTerm 以及其他基于 libghostty 的终端）或 iTerm2 inline image 协议（iTerm2、开启 `terminal.integrated.enableImages` 的 VS Code）——示例会用所选字体栅格化成图片并贴到右侧，是真实预览。启动浏览器前会直接向终端查询能力；对不响应查询的终端（部分 VS Code 系终端只实现了 inline image 而不响应查询）再用环境变量兜底。图片背景透明，字形颜色会根据终端上报的背景色（无法获取时回退 `COLORFGBG`）自动选择深色或浅色，因此在明/暗主题下都清晰可读，也不会出现色块。其他终端与 tmux 无法预览图片，会退回用终端当前字体绘制的文本示例，并显示英文提示 `cannot preview: kitty/iTerm2 image protocol not supported`。Windows 上，控制台程序的输出要经过 ConPTY，而 ConPTY 通常会丢弃图形转义序列，因此只有自带 ConPTY 并会转发这些序列的终端才能显示图片预览（Otty 可以；尚未处理 ConPTY 的旧版 WezTerm 会退回同样的文本示例与提示）。对这类终端可用 `TSP_GRAPHICS=1` 强制启用图形。`TSP_GRAPHICS=0` 可关闭图片预览。
+在能响应图形能力查询的终端中——Kitty graphics 协议（kitty、Ghostty、WezTerm 以及其他基于 libghostty 的终端）或 iTerm2 inline image 协议（iTerm2、开启 `terminal.integrated.enableImages` 的 VS Code）——示例会用所选字体栅格化成图片并贴到右侧，是真实预览。启动浏览器前会直接向终端查询能力；对不响应查询的终端（部分 VS Code 系终端只实现了 inline image 而不响应查询）再用环境变量兜底。图片背景透明，字形颜色会根据终端上报的背景色（无法获取时回退 `COLORFGBG`）自动选择深色或浅色，因此在明/暗主题下都清晰可读，也不会出现色块。终端上报单元格像素尺寸时（`TIOCGWINSZ` 或 `CSI 16 t`），示例会按该尺寸栅格化，字形大小与终端自身文字一致，而不是被终端缩放。其他终端与 tmux 无法预览图片，会退回用终端当前字体绘制的文本示例，并显示英文提示 `cannot preview: kitty/iTerm2 image protocol not supported`。Windows 上，控制台程序的输出要经过 ConPTY，而 ConPTY 通常会丢弃图形转义序列，因此只有自带 ConPTY 并会转发这些序列的终端才能显示图片预览（Otty 可以；尚未处理 ConPTY 的旧版 WezTerm 会退回同样的文本示例与提示）。对这类终端可用 `TSP_GRAPHICS=1` 强制启用图形。`TSP_GRAPHICS=0` 可关闭图片预览。
 
 | 按键 | 动作 |
 | --- | --- |

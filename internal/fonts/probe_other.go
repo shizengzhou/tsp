@@ -13,7 +13,7 @@ func readResponse(_ *os.File, _ time.Duration, _ func([]byte) bool) []byte {
 	return nil
 }
 
-// ttyCellAspect is unavailable without /dev/tty and TIOCGWINSZ.
-func ttyCellAspect() float64 {
-	return 0
+// ttyCellSize is unavailable without /dev/tty and TIOCGWINSZ.
+func ttyCellSize() (width, height int) {
+	return 0, 0
 }

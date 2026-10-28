@@ -178,18 +178,28 @@ func parseColorComponent(component string) (uint8, bool) {
 	return uint8(value * 0xff / max), true
 }
 
-// terminalCellAspect reports the terminal's cell shape as height/width. The
-// pty's pixel size is used when available, otherwise the terminal is asked
-// directly (CSI 16 t). Zero means the cell shape could not be determined.
-func terminalCellAspect() float64 {
-	if aspect := ttyCellAspect(); aspect > 0 {
-		return aspect
+// cellSize is the pixel size of one terminal cell. width and height are zero
+// when the terminal does not report pixels; aspect (height/width) is the
+// fallback used to size the preview without stretching it.
+type cellSize struct {
+	width, height int
+	aspect        float64
+}
+
+// terminalCellSize reports the terminal's real cell size in pixels. The pty's
+// pixel size is used when available, otherwise the terminal is asked directly
+// (CSI 16 t). A zero-size result means the size could not be determined.
+func terminalCellSize() cellSize {
+	if width, height := ttyCellSize(); width > 0 && height > 0 {
+		if aspect := parseCellAspectValue(float64(height), float64(width)); aspect > 0 {
+			return cellSize{width: width, height: height, aspect: aspect}
+		}
 	}
 	response, queried := queryTerminal(cellSizeQuery, cellSizeResponseComplete)
 	if !queried {
-		return 0
+		return cellSize{}
 	}
-	return parseCellAspect(response)
+	return parseCellSize(response)
 }
 
 // cellSizeResponseComplete reports whether a CSI 16 t reply was received.
@@ -198,28 +208,32 @@ func cellSizeResponseComplete(response []byte) bool {
 	return start >= 0 && bytes.Contains(response[start:], []byte("t"))
 }
 
-// parseCellAspect extracts height/width from a "CSI 6 ; height ; width t"
+// parseCellSize extracts the pixel size from a "CSI 6 ; height ; width t"
 // reply. Implausible values are rejected so the caller keeps its fallback.
-func parseCellAspect(response []byte) float64 {
+func parseCellSize(response []byte) cellSize {
 	start := bytes.Index(response, []byte("\x1b[6;"))
 	if start < 0 {
-		return 0
+		return cellSize{}
 	}
 	rest := response[start+len("\x1b[6;"):]
 	end := bytes.IndexByte(rest, 't')
 	if end < 0 {
-		return 0
+		return cellSize{}
 	}
 	parts := strings.Split(string(rest[:end]), ";")
 	if len(parts) < 2 {
-		return 0
+		return cellSize{}
 	}
 	height, errHeight := strconv.Atoi(parts[0])
 	width, errWidth := strconv.Atoi(parts[1])
 	if errHeight != nil || errWidth != nil {
-		return 0
+		return cellSize{}
 	}
-	return parseCellAspectValue(float64(height), float64(width))
+	aspect := parseCellAspectValue(float64(height), float64(width))
+	if aspect == 0 {
+		return cellSize{}
+	}
+	return cellSize{width: width, height: height, aspect: aspect}
 }
 
 // parseCellAspectValue validates a height/width ratio reported by a terminal.
