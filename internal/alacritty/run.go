@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
+	"github.com/shizengzhou/tsp/internal/themebrowser"
 )
 
 // Options controls the alacritty theme browser.
@@ -19,7 +19,7 @@ type Options struct {
 // Run opens the interactive alacritty theme browser, downloading the themes on
 // first use.
 func Run(opts Options) error {
-	if !isTerminal(os.Stdout) {
+	if !themebrowser.IsTerminal(os.Stdout) {
 		return fmt.Errorf("tsp themes needs an interactive terminal")
 	}
 	if !isAlacrittyTerminal() {
@@ -62,9 +62,8 @@ func Run(opts Options) error {
 	}
 
 	apply := func(theme Theme) error { return SetTheme(theme, configPath, themeDir) }
-	ui := NewUI(themes, themeDir, configPath, apply)
-	_, err = tea.NewProgram(ui, tea.WithAltScreen()).Run()
-	return err
+	uiOpts := themebrowser.Options{Kind: "alacritty", Reload: "alacritty reloads automatically"}
+	return themebrowser.Run(themes, uiOpts, apply)
 }
 
 // RunningInAlacritty reports whether tsp runs inside alacritty, so commands
@@ -106,7 +105,7 @@ func ensureThemes(dir string) error {
 		return err
 	}
 
-	interactive := isTerminal(os.Stderr)
+	interactive := themebrowser.IsTerminal(os.Stderr)
 	progress := func(saved, total int) {}
 	if interactive {
 		fmt.Fprintf(os.Stderr, "Downloading alacritty themes from GitHub…\n")
@@ -126,12 +125,4 @@ func ensureThemes(dir string) error {
 		fmt.Fprintf(os.Stderr, "Saved alacritty themes to %s\n", dir)
 	}
 	return nil
-}
-
-func isTerminal(f *os.File) bool {
-	info, err := f.Stat()
-	if err != nil {
-		return false
-	}
-	return info.Mode()&os.ModeCharDevice != 0
 }

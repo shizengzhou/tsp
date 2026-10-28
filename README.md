@@ -10,8 +10,8 @@ A collection of small tools for previewing terminal settings:
 
 - `tsp omz themes` — oh-my-zsh theme browser with a live prompt preview; `Enter` applies a theme via `omz theme set`
 - `tsp omp themes` — oh-my-posh theme browser with a live prompt preview; `Enter` rewrites the `oh-my-posh init` line of your shell profile
-- `tsp fonts` — installed monospaced font family browser with styles and a glyph sample; `Enter` prints the chosen family name, or saves it to alacritty's config when running inside alacritty
-- `tsp themes` — alacritty color theme browser with a live palette and code preview; `Enter` applies the theme through `general.import`
+- `tsp fonts` — installed monospaced font family browser with styles and a glyph sample; `Enter` prints the chosen family name, or saves it to the terminal config when running inside alacritty or ghostty
+- `tsp themes` — alacritty, wezterm and ghostty color theme browser with a live palette and code preview; `Enter` applies the theme through `general.import`, `color_scheme` or `theme`
 
 ## Requirements
 
@@ -104,26 +104,26 @@ Both remove the binary and delete the install directory once it is empty; on
 Windows the directory is also dropped from your user `Path` at that point (and
 from the current session), so other tools installed next to `tsp` keep working.
 Files written by `tsp` itself — the `ZSH_THEME` line, `oh-my-posh` init lines,
-`alacritty.toml` imports and the downloaded themes — are left untouched.
+`alacritty.toml` imports, the `color_scheme` in `wezterm.lua`, the `theme` line in the Ghostty config and the downloaded themes — are left untouched.
 
 ## Usage
 
-### Terminal color themes (alacritty)
+### Terminal color themes (alacritty, wezterm and ghostty)
 
 ```bash
 tsp themes
 ```
 
-Browse the color schemes in the alacritty config directory (`~/.config/alacritty/themes`, or `$ALACRITTY_CONFIG_DIRECTORY/themes`). It refuses to run outside alacritty, because the selected colors can only be seen there. On first run, when that directory is missing, the alacritty ports from [iTerm2-Color-Schemes](https://github.com/mbadolato/iTerm2-Color-Schemes) are downloaded into it. The list is on the left; the right pane previews the palette, the foreground/background colors and a sample of terminal output drawn with the theme itself.
+Inside alacritty it browses the color schemes in the alacritty config directory (`~/.config/alacritty/themes`, or `$ALACRITTY_CONFIG_DIRECTORY/themes`); on first run, when that directory is missing, the alacritty ports from [iTerm2-Color-Schemes](https://github.com/mbadolato/iTerm2-Color-Schemes) are downloaded into it. Inside wezterm it lists the color schemes built into the wezterm binary, so nothing is downloaded. Inside ghostty it lists the themes shipped with the Ghostty app and the ones in `$XDG_CONFIG_HOME/ghostty/themes` (or `~/.config/ghostty/themes`), following Ghostty's documented search order; a user theme wins over a built-in theme with the same name. Elsewhere it refuses to run, because the selected colors can only be seen there. The list is on the left; the right pane previews the palette, the foreground/background colors and a sample of terminal output drawn with the theme itself.
 
-`Enter` makes alacritty use the theme: it points `general.import` in `alacritty.toml` at the theme file and comments out inline `[colors*]` tables so the import actually wins (alacritty loads the importing file last). A `.bck` backup of the config is kept, and alacritty reloads it automatically. YAML configs are rejected; convert them to TOML first.
+`Enter` applies the scheme. Inside alacritty it points `general.import` in `alacritty.toml` at the theme file and comments out inline `[colors*]` tables so the import actually wins (alacritty loads the importing file last). Inside wezterm it sets `color_scheme` in `wezterm.lua`. Inside ghostty it writes `theme = Name` to the Ghostty config and comments out `background`, `foreground`, `palette`, `cursor-*` and `selection-*` keys, which would otherwise override the theme. In all cases a `.bck` backup of the config is kept and the theme is written to the config as soon as you press `Enter`. Alacritty YAML configs are rejected; convert them to TOML first. WezTerm configs must be Lua; Ghostty theme files use the same `key = value` syntax as its config.
 
 | Flag | Description | Default |
 | --- | --- | --- |
-| `--themes DIR` | theme directory | `<alacritty config dir>/themes` |
-| `--config FILE` | alacritty config to edit | `alacritty.toml` in the config dir |
+| `--themes DIR` | alacritty theme directory | `<alacritty config dir>/themes` |
+| `--config FILE` | terminal config to edit | `alacritty.toml` in the config dir, the wezterm config (`$WEZTERM_CONFIG_FILE`, `~/.config/wezterm/wezterm.lua`, `~/.wezterm.lua`), or the Ghostty config: the macOS application support config when it already exists, otherwise the XDG config |
 
-Keys: `Up`/`Down`, `j`/`k`, `PgUp`/`PgDn`, `g`/`G`, start typing or `/` to filter, `Enter` applies, `Esc` clears the filter, `q` quits.
+Keys: `Up`/`Down`, `j`/`k`, `PgUp`/`PgDn`, `g`/`G`, start typing or `/` to filter, `Enter` applies the theme and quits, `Esc` clears the filter, `q` quits.
 
 ### Version and updates
 
@@ -221,9 +221,9 @@ Lists every installed monospaced font family it can parse; proportional faces ar
 - Linux: `~/.fonts`, `~/.local/share/fonts`, `/usr/local/share/fonts`, `/usr/share/fonts`
 - Windows: `%WINDIR%\Fonts`, `%LOCALAPPDATA%\Microsoft\Windows\Fonts`
 
-The right pane shows the family name, its styles, a `preview` block with the ASCII glyph sample used by kitty's `choose-fonts` — wrapped onto as many lines as the pane width needs — and the PostScript name and source file. Characters the selected font does not provide are omitted; fonts without enough scalable ASCII coverage fall back to the text sample. `Enter` prints the selected family name to stdout; inside alacritty it instead saves the chosen family to `alacritty.toml` directly: the normal, bold, italic and bold italic styles are matched automatically and written as inline tables inside `[font]` (for example `normal = { family = 'Maple Mono NF', style = 'Regular' }`), with a `<config>.bck` backup; alacritty reloads the config automatically. Separate `[font.normal]` tables written by older versions are folded into that form. A style the family does not provide is removed instead of written — switching normal to Cascadia Mono NF also drops the old JetBrainsMono Nerd Font from the bold, italic and bold italic slots — and alacritty synthesizes it. Elsewhere the family name is still printed; a missing config or directory is created.
+The right pane shows the family name, its styles, a `preview` block with the ASCII glyph sample — wrapped onto as many lines as the pane width needs — and the PostScript name and source file. Characters the selected font does not provide are omitted; fonts without enough scalable ASCII coverage fall back to the text sample. `Enter` prints the selected family name to stdout; inside alacritty it instead saves the chosen family to `alacritty.toml` directly: the normal, bold, italic and bold italic styles are matched automatically and written as inline tables inside `[font]` (for example `normal = { family = 'Maple Mono NF', style = 'Regular' }`), with a `<config>.bck` backup; alacritty reloads the config automatically. Separate `[font.normal]` tables written by older versions are folded into that form. A style the family does not provide is removed instead of written — switching normal to Cascadia Mono NF also drops the old JetBrainsMono Nerd Font from the bold, italic and bold italic slots — and alacritty synthesizes it. Inside ghostty, `Enter` writes `font-family`, `font-family-bold`, `font-family-italic` and `font-family-bold-italic`; every list is reset first because Ghostty appends fallbacks to values from earlier config files, and a style the family lacks is left empty so Ghostty derives it from the regular family. Elsewhere the family name is still printed; a missing config or directory is created.
 
-In terminals that answer a graphics capability query — the Kitty graphics protocol (kitty, Ghostty, WezTerm and other libghostty-based terminals) or iTerm2's inline image protocol (iTerm2, VS Code with `terminal.integrated.enableImages`) — the sample is rasterized from the selected font and placed in the pane, so it is a real preview. The terminal is queried directly before the browser starts; environment variables back this up for terminals that do not answer the query (some VS Code-based terminals implement inline images without replying). The image has a transparent background and its glyph color follows the terminal's reported background (falling back to `COLORFGBG`), so it stays readable on light and dark themes instead of drawing a colored card. Elsewhere (other terminals, tmux) the pane falls back to a text sample drawn with your terminal's current font and says so. On Windows, console programs reach the terminal through ConPTY, which normally swallows graphics escapes, so images only appear in terminals whose ConPTY forwards them — Otty does; WezTerm builds from before its ConPTY workarounds do not and fall back to the text sample. `TSP_GRAPHICS=1` forces graphics there for terminals that work around this (a recent WezTerm nightly, for example). `TSP_GRAPHICS=0` forces the text fallback.
+In terminals that answer a graphics capability query — the Kitty graphics protocol (kitty, Ghostty, WezTerm and other libghostty-based terminals) or iTerm2's inline image protocol (iTerm2, VS Code with `terminal.integrated.enableImages`) — the sample is rasterized from the selected font and placed in the pane, so it is a real preview. The terminal is queried directly before the browser starts; environment variables back this up for terminals that do not answer the query (some VS Code-based terminals implement inline images without replying). The image has a transparent background and its glyph color follows the terminal's reported background (falling back to `COLORFGBG`), so it stays readable on light and dark themes instead of drawing a colored card. Elsewhere (other terminals, tmux) the sample is drawn with your terminal's current font and the pane says “cannot preview: kitty/iTerm2 image protocol not supported”. On Windows, console programs reach the terminal through ConPTY, which normally swallows graphics escapes, so images only appear in terminals whose ConPTY forwards them — Otty does; WezTerm builds from before its ConPTY workarounds do not and show the same fallback. `TSP_GRAPHICS=1` forces graphics there for terminals that work around this (a recent WezTerm nightly, for example). `TSP_GRAPHICS=0` disables image previews.
 
 | Key | Action |
 | --- | --- |
@@ -250,15 +250,15 @@ Previews are cached per theme and width, and are rendered on selection. At most 
 ## Other behavior
 
 - All browsers must run in an interactive terminal; piped output fails with an error.
-- `tsp themes` refuses to run outside alacritty (detected via `ALACRITTY_SOCKET`/`ALACRITTY_WINDOW_ID`, `TERM_PROGRAM=Alacritty`, or a `TERM` starting with `alacritty`; on Windows, where ConPTY replaces `TERM`, an `alacritty.exe` ancestor process is used instead) because the colors are only visible there.
-- `tsp themes` only understands alacritty's TOML color files; a `.yml` config is rejected with a migration hint.
-- The first `tsp themes` run needs network access to list and download the alacritty themes; a failed download leaves no themes directory behind.
+- `tsp themes` refuses to run outside alacritty, wezterm or ghostty (alacritty is detected via `ALACRITTY_SOCKET`/`ALACRITTY_WINDOW_ID`, `TERM_PROGRAM=Alacritty`, or a `TERM` starting with `alacritty`; on Windows, where ConPTY replaces `TERM`, an `alacritty.exe` ancestor process is used instead. WezTerm is detected via `TERM_PROGRAM=WezTerm`, `WEZTERM_PANE`, or `WEZTERM_EXECUTABLE`; Ghostty via `TERM_PROGRAM=ghostty`, a `TERM` starting with `xterm-ghostty`, or `GHOSTTY_RESOURCES_DIR`/`GHOSTTY_BIN_DIR`) because the colors are only visible there.
+- `tsp themes` only understands alacritty's TOML color files; a `.yml` config is rejected with a migration hint. WezTerm configs must be Lua. Ghostty themes are looked up in the two documented directories and use the regular `key = value` syntax.
+- The first alacritty `tsp themes` run needs network access to list and download the themes; a failed download leaves no themes directory behind. WezTerm uses the schemes built into its binary and Ghostty ships its themes, so neither downloads anything.
 - `tsp omz themes` without oh-my-zsh (or when `<zsh>/themes` is empty) exits with status 1 and a hint to pass `--zsh`.
 - `tsp omp themes` without `oh-my-posh` on `PATH`, or when no theme is found, exits with status 1 and a hint to pass `--themes`.
 - A missing custom directory is fine; the Custom tab is simply empty.
 - Theme previews are static snapshots: content that depends on external tools or runtime state (virtualenv, kube context, clock) may be empty or stale; press `r` to render again.
 - Setting a theme only rewrites `.zshrc` or the shell profile; it does not affect shells that are already running.
-- `tsp fonts` prints nothing when you quit with `q`; only `Enter` emits the family name.
+- `tsp fonts` prints nothing when you quit with `q`; only `Enter` emits the family name, or saves the family to the terminal config inside alacritty and ghostty.
 - Font samples are rasterized with `golang.org/x/image`; OpenType shaping features such as ligatures and stylistic sets are not applied.
 
 ## Releasing
@@ -284,11 +284,22 @@ internal/omz/preview.go theme preview renderer, temporary HOME, cache
 internal/omz/ui.go      theme browser interface
 internal/omz/set.go     applies themes via omz theme set
 internal/omz/run.go     themes entry point and terminal check
+internal/themebrowser/theme.go color theme model shared by the browsers
+internal/themebrowser/ui.go shared color theme browser interface
+internal/themebrowser/run.go browser loop and interactive terminal check
 internal/alacritty/theme.go alacritty theme discovery and TOML color parsing
 internal/alacritty/download.go first-run download from iTerm2-Color-Schemes
 internal/alacritty/set.go points general.import at a theme, comments inline colors
-internal/alacritty/ui.go alacritty theme browser interface
-internal/alacritty/run.go themes entry point, first-run setup
+internal/alacritty/run.go alacritty themes entry point, first-run setup
+internal/wezterm/schemes.go built-in color schemes read from the wezterm binary
+internal/wezterm/config.go color_scheme updates in wezterm.lua
+internal/wezterm/detect.go wezterm detection
+internal/wezterm/run.go wezterm themes entry point
+internal/ghostty/themes.go ghostty theme discovery and key = value parsing
+internal/ghostty/config.go theme updates in the ghostty config
+internal/ghostty/font.go font family updates in the ghostty config
+internal/ghostty/detect.go ghostty detection
+internal/ghostty/run.go ghostty themes entry point
 internal/omp/theme.go   oh-my-posh theme discovery (incl. the Store package)
 internal/omp/preview.go oh-my-posh preview renderer, temporary HOME, cache
 internal/omp/ui.go      oh-my-posh theme browser interface

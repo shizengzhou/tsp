@@ -1,4 +1,4 @@
-package alacritty
+package themebrowser
 
 import (
 	"fmt"
@@ -38,13 +38,21 @@ type appliedMsg struct {
 	err  error
 }
 
-// UI is the interactive alacritty color theme browser.
+// Options controls the browser labels.
+type Options struct {
+	// Kind names the terminal whose themes are shown ("alacritty", "wezterm").
+	Kind string
+	// Reload tells the user how the terminal picks up the applied theme.
+	Reload string
+}
+
+// UI is the interactive color theme browser.
 type UI struct {
-	themes     []Theme
-	themeDir   string
-	configPath string
-	apply      func(Theme) error
-	home       string
+	themes []Theme
+	kind   string
+	reload string
+	apply  func(Theme) error
+	home   string
 
 	width, height int
 	ready         bool
@@ -61,14 +69,14 @@ type UI struct {
 
 // NewUI builds the browser model. apply is called with the chosen theme when
 // the user presses Enter.
-func NewUI(themes []Theme, themeDir, configPath string, apply func(Theme) error) *UI {
+func NewUI(themes []Theme, opts Options, apply func(Theme) error) *UI {
 	home, _ := os.UserHomeDir()
 	return &UI{
-		themes:     themes,
-		themeDir:   themeDir,
-		configPath: configPath,
-		apply:      apply,
-		home:       home,
+		themes: themes,
+		kind:   opts.Kind,
+		reload: opts.Reload,
+		apply:  apply,
+		home:   home,
 	}
 }
 
@@ -89,9 +97,11 @@ func (m *UI) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.applied = msg.name
-		m.status = fmt.Sprintf("applied %q · alacritty reloads automatically", msg.name)
+		m.status = fmt.Sprintf("applied %q · %s", msg.name, m.reload)
 		m.statusErr = false
-		return m, nil
+		// The theme is saved, so leave the browser; an error keeps it open so
+		// another theme can be picked.
+		return m, tea.Quit
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -340,7 +350,7 @@ func (m *UI) headerView() string {
 	case m.query != "":
 		right = fmt.Sprintf("filter %s  %d/%d  esc clear", m.query, len(m.visible()), len(m.themes))
 	default:
-		right = fmt.Sprintf("%d alacritty themes", len(m.themes))
+		right = fmt.Sprintf("%d %s themes", len(m.themes), m.kind)
 	}
 	rightStyled := styleMuted.Render(right) + "  "
 	if m.width < 54 {
@@ -435,7 +445,11 @@ func (m *UI) themePreview(theme Theme, width, height int) []string {
 	}
 
 	addStyled(base.Bold(true), "  "+theme.Name)
-	addStyled(faint, "  "+shortenPath(theme.Path, m.home, w-2))
+	detail := theme.Detail
+	if detail == "" {
+		detail = shortenPath(theme.Path, m.home, w-2)
+	}
+	addStyled(faint, "  "+detail)
 	add("")
 	addParts(
 		faint.Render("  fg ")+base.Background(fg).Render("    "),
@@ -611,7 +625,7 @@ func swatchParts(colors []string, offset int, base lipgloss.Style) []string {
 
 // contrastColor picks a readable label color for a swatch.
 func contrastColor(hex string) string {
-	r, g, b := parseRGB(hex)
+	r, g, b := ParseRGB(hex)
 	luma := (0.299*float64(r) + 0.587*float64(g) + 0.114*float64(b)) / 255
 	if luma >= 0.5 {
 		return "#101014"
@@ -620,7 +634,7 @@ func contrastColor(hex string) string {
 }
 
 func (m *UI) footerView() string {
-	hints := "  ↑↓ move   / filter   ⏎ apply   q quit"
+	hints := "  ↑↓ move   / filter   ⏎ apply & quit   q quit"
 	if m.width < 60 {
 		hints = "  ↑↓  /  ⏎  q"
 	}

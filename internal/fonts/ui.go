@@ -443,7 +443,7 @@ func (m *UI) previewView(width, height int, includeImage bool) ([]string, *image
 		return fitRows(lines, height), nil
 	}
 
-	add(rightAlign(styleAccent.Bold(true).Render(ansi.Truncate(family.Name, width-2, "…")), width))
+	add(" " + styleAccent.Bold(true).Render(ansi.Truncate(family.Name, width-2, "…")))
 	add(" " + styleMuted.Render("Styles: ") + strings.Join(family.Styles(), ", "))
 	add(" " + styleMuted.Render(m.chooseHint))
 	add("")
@@ -488,8 +488,10 @@ func (m *UI) previewView(width, height int, includeImage bool) ([]string, *image
 	add("")
 	if area != nil {
 		add(" " + styleFaint.Render("preview rendered from the selected font"))
-	} else {
+	} else if includeImage {
 		add(" " + styleFaint.Render("preview uses your terminal's current font"))
+	} else {
+		add(" " + styleFaint.Render("cannot preview: kitty/iTerm2 image protocol not supported"))
 	}
 
 	return fitRows(lines, height), area
@@ -530,14 +532,6 @@ func shortPath(path, home string, width int) string {
 		return ansi.Truncate(base, width, "…")
 	}
 	return "…/" + base
-}
-
-func rightAlign(s string, width int) string {
-	gap := width - lipgloss.Width(s)
-	if gap < 0 {
-		gap = 0
-	}
-	return strings.Repeat(" ", gap) + s
 }
 
 func fitRows(lines []string, height int) []string {

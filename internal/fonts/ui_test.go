@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func newTestUI() *UI {
@@ -143,12 +144,26 @@ func TestFontViewLayout(t *testing.T) {
 	}
 	for _, want := range []string{
 		"All 2", "Beta", "Styles: Bold, Regular", "Press Enter to choose this family",
-		"preview", "abcdefghijklmnopqrstuvwxyz", "preview uses your terminal's current font",
+		"preview", "abcdefghijklmnopqrstuvwxyz",
+		"cannot preview: kitty/iTerm2 image protocol not supported",
 		"Beta-Regular",
 	} {
 		if !strings.Contains(view, want) {
 			t.Errorf("view does not contain %q", want)
 		}
+	}
+	if strings.Contains(view, "preview uses your terminal's current font") {
+		t.Error("a terminal without image support should not claim to preview with its current font")
+	}
+}
+
+func TestFontNameIsLeftAligned(t *testing.T) {
+	m := newTestUI()
+	pressFontKey(m, tea.KeyDown)
+
+	rows, _ := m.previewView(m.previewWidth(), m.listHeight(), false)
+	if got := ansi.Strip(rows[0]); !strings.HasPrefix(got, " Beta") {
+		t.Errorf("preview name row = %q, want it left-aligned", got)
 	}
 }
 

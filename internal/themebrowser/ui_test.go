@@ -1,4 +1,4 @@
-package alacritty
+package themebrowser
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ func testTheme() Theme {
 }
 
 func TestUIShowsThemePreview(t *testing.T) {
-	m := NewUI([]Theme{testTheme()}, "/cfg/themes", "/cfg/alacritty.toml", func(Theme) error { return nil })
+	m := NewUI([]Theme{testTheme()}, Options{Kind: "alacritty", Reload: "alacritty reloads automatically"}, func(Theme) error { return nil })
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 32})
 
 	view := m.View()
@@ -52,19 +52,43 @@ func TestUIShowsThemePreview(t *testing.T) {
 	}
 }
 
+func TestUIShowsThemeDetail(t *testing.T) {
+	theme := testTheme()
+	theme.Detail = "built-in color scheme"
+	m := NewUI([]Theme{theme}, Options{Kind: "wezterm", Reload: "wezterm reloads automatically"}, func(Theme) error { return nil })
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
+
+	plain := ansi.Strip(m.View())
+	if !strings.Contains(plain, "built-in color scheme") {
+		t.Errorf("View() does not show the theme detail:\n%s", plain)
+	}
+	if strings.Contains(plain, "themes/Demo.toml") {
+		t.Errorf("View() still shows the path although Detail is set:\n%s", plain)
+	}
+	if !strings.Contains(plain, "1 wezterm themes") {
+		t.Errorf("View() does not name the terminal kind:\n%s", plain)
+	}
+}
+
 func TestUIAppliesThemeOnEnter(t *testing.T) {
 	var applied []string
-	m := NewUI([]Theme{testTheme()}, "/cfg/themes", "/cfg/alacritty.toml", func(theme Theme) error {
+	m := NewUI([]Theme{testTheme()}, Options{Kind: "alacritty", Reload: "alacritty reloads automatically"}, func(theme Theme) error {
 		applied = append(applied, theme.Name)
 		return nil
 	})
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
 
-	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd == nil {
+	_, applyCmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if applyCmd == nil {
 		t.Fatal("Enter did not start applying the theme")
 	}
-	m.Update(cmd())
+	_, quitCmd := m.Update(applyCmd())
+	if quitCmd == nil {
+		t.Fatal("a successful apply did not quit the browser")
+	}
+	if msg := quitCmd(); msg != (tea.QuitMsg{}) {
+		t.Fatalf("apply returned %T, want tea.QuitMsg", msg)
+	}
 
 	if len(applied) != 1 || applied[0] != "Demo" {
 		t.Fatalf("applied = %v, want [Demo]", applied)
@@ -76,7 +100,7 @@ func TestUIAppliesThemeOnEnter(t *testing.T) {
 }
 
 func TestUIApplyErrorIsShown(t *testing.T) {
-	m := NewUI([]Theme{testTheme()}, "/cfg/themes", "/cfg/alacritty.toml", func(Theme) error {
+	m := NewUI([]Theme{testTheme()}, Options{Kind: "alacritty", Reload: "alacritty reloads automatically"}, func(Theme) error {
 		return fmt.Errorf("permission denied")
 	})
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
@@ -96,7 +120,7 @@ func TestUIFilter(t *testing.T) {
 	other.Name = "Other"
 	themes = append(themes, other)
 
-	m := NewUI(themes, "/cfg/themes", "/cfg/alacritty.toml", func(Theme) error { return nil })
+	m := NewUI(themes, Options{Kind: "alacritty", Reload: "alacritty reloads automatically"}, func(Theme) error { return nil })
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
 
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("oth")})
