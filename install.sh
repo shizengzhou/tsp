@@ -114,28 +114,22 @@ info "downloading $archive ($os/$arch)"
 curl -fsSL "$download_url" -o "$tmp_dir/$archive" ||
 	fail "download failed: $download_url"
 
-if curl -fsSL "$checksums_url" -o "$tmp_dir/checksums.txt" 2>/dev/null; then
-	expected="$(awk -v name="$archive" '$2 == name { print $1 }' "$tmp_dir/checksums.txt")"
-	if [ -n "$expected" ]; then
-		actual=""
-		if command -v sha256sum >/dev/null 2>&1; then
-			actual="$(sha256sum "$tmp_dir/$archive" | awk '{ print $1 }')"
-		elif command -v shasum >/dev/null 2>&1; then
-			actual="$(shasum -a 256 "$tmp_dir/$archive" | awk '{ print $1 }')"
-		fi
-		if [ -z "$actual" ]; then
-			info "warning: no sha256 tool found, skipping checksum verification"
-		elif [ "$actual" != "$expected" ]; then
-			fail "checksum mismatch for $archive"
-		else
-			info "checksum verified"
-		fi
-	else
-		info "warning: $archive is not listed in checksums.txt"
-	fi
+curl -fsSL "$checksums_url" -o "$tmp_dir/checksums.txt" ||
+	fail "could not download checksums.txt: $checksums_url"
+
+expected="$(awk -v name="$archive" '$2 == name { print $1 }' "$tmp_dir/checksums.txt")"
+[ -n "$expected" ] || fail "$archive is not listed in checksums.txt"
+
+if command -v sha256sum >/dev/null 2>&1; then
+	actual="$(sha256sum "$tmp_dir/$archive" | awk '{ print $1 }')"
+elif command -v shasum >/dev/null 2>&1; then
+	actual="$(shasum -a 256 "$tmp_dir/$archive" | awk '{ print $1 }')"
 else
-	info "warning: checksums.txt unavailable, skipping verification"
+	fail "no sha256 tool found (need sha256sum or shasum)"
 fi
+
+[ "$actual" = "$expected" ] || fail "checksum mismatch for $archive"
+info "checksum verified"
 
 tar -xzf "$tmp_dir/$archive" -C "$tmp_dir" || fail "failed to extract $archive"
 [ -f "$tmp_dir/tsp" ] || fail "archive does not contain a tsp binary"

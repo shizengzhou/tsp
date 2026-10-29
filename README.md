@@ -20,6 +20,24 @@ A collection of small tools for previewing terminal settings:
 - `tsp omp themes`: `oh-my-posh` on `PATH` (themes come from `$POSH_THEMES_PATH` and the installer locations, including the Microsoft Store package)
 - `tsp fonts`: nothing beyond the binary
 
+## Supported terminals
+
+| Terminal | Font preview | Font saved on `Enter` | Color theme browser |
+| --- | --- | --- | --- |
+| Alacritty | Text sample (no graphics protocol) | Yes, to `alacritty.toml` | Yes |
+| Ghostty | Image (Kitty graphics) | Yes, to its config | Yes |
+| WezTerm | Image (Kitty graphics) | No, the family name is printed | Yes |
+| Kitty | Image (Kitty graphics) | No | No; refuses to run |
+| iTerm2 | Image (iTerm2 inline image) | No | No; refuses to run |
+| VS Code with `terminal.integrated.enableImages` | Image (iTerm2 inline image) | No | No |
+| Otty (Windows, libghostty-based) | Image (Kitty graphics, forwarded through ConPTY) | No | No |
+| tmux | Text sample | No | No |
+| Anything else (Terminal.app, Windows Terminal, Konsole, GNOME Terminal, …) | Text sample | No | No |
+
+- `tsp themes` runs only inside Alacritty, WezTerm and Ghostty, because the chosen colors cannot be seen anywhere else.
+- In tmux and terminals without a graphics protocol the font sample is drawn with your current terminal font, and the pane says `cannot preview: kitty/iTerm2 image protocol not supported`.
+- In VS Code the terminal's image addon rescales the sample to its own cell grid, so the preview is softer than in native terminals.
+
 ## Install
 
 ### Install script
@@ -28,7 +46,7 @@ A collection of small tools for previewing terminal settings:
 curl -fsSL https://raw.githubusercontent.com/shizengzhou/tsp/main/install.sh | bash
 ```
 
-The script detects macOS/Linux and amd64/arm64, verifies `checksums.txt`, and installs `tsp` into `~/.local/bin`. Pin a version or change the location with:
+The script detects macOS/Linux and amd64/arm64, verifies the archive against `checksums.txt` (and refuses to install when it is missing, does not list the archive, or disagrees with it), and installs `tsp` into `~/.local/bin`. Pin a version or change the location with:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/shizengzhou/tsp/main/install.sh \
@@ -48,8 +66,10 @@ irm https://raw.githubusercontent.com/shizengzhou/tsp/main/install.ps1 -OutFile 
 .\install.ps1 -Version v0.1.0 -InstallDir C:\Tools
 ```
 
-The script downloads the Windows zip, verifies `checksums.txt`, installs
-`tsp.exe` into `%USERPROFILE%\.local\bin`, and appends that directory to your
+The script downloads the Windows zip, verifies the archive against
+`checksums.txt` (refusing to install when it is missing, does not list the
+archive, or disagrees with it), installs `tsp.exe` into
+`%USERPROFILE%\.local\bin`, and appends that directory to your
 user `Path` (and to the PATH of the current session), so `tsp` works in new
 terminals without signing out. A custom `-InstallDir` is recorded in
 `%LOCALAPPDATA%\tsp\install.txt`, so uninstall finds it without being told. It
@@ -163,7 +183,7 @@ tsp version
 tsp update
 ```
 
-`tsp update` checks the latest GitHub release, downloads the matching archive for the current OS/architecture, verifies it against the release checksums, and replaces the running binary in place. Use `sudo tsp update` when tsp lives in a directory you cannot write to, or re-run the install script. `TSP_BASE_URL` overrides that repository URL and the download endpoint, like the install scripts.
+`tsp update` checks the latest GitHub release, downloads the matching archive for the current OS/architecture, verifies it against the release checksums, and replaces the running binary in place. The update is refused when `checksums.txt` is missing, does not list the archive, or disagrees with it, so an unverified download is never installed. Use `sudo tsp update` when tsp lives in a directory you cannot write to, or re-run the install script. `TSP_BASE_URL` overrides that repository URL and the download endpoint, like the install scripts.
 
 ### Themes
 
@@ -252,9 +272,9 @@ Lists every installed monospaced font family it can parse; proportional faces ar
 - Linux: `~/.fonts`, `~/.local/share/fonts`, `/usr/local/share/fonts`, `/usr/share/fonts`
 - Windows: `%WINDIR%\Fonts`, `%LOCALAPPDATA%\Microsoft\Windows\Fonts`
 
-The right pane shows the family name, its styles, a `preview` block with the ASCII glyph sample, and the PostScript name and source file. Characters the selected font does not provide are omitted; fonts without enough scalable ASCII coverage fall back to the text sample. `Enter` prints the selected family name to stdout; inside Alacritty it instead saves the chosen family to `alacritty.toml` directly: the normal, bold, italic and bold italic styles are matched automatically and written as inline tables inside `[font]` (for example `normal = { family = 'Maple Mono NF', style = 'Regular' }`), with a `<config>.bck` backup; Alacritty reloads the config automatically. Separate `[font.normal]` tables written by older versions are folded into that form. A style the family does not provide is removed instead of written — switching normal to Cascadia Mono NF also drops the old JetBrainsMono Nerd Font from the bold, italic and bold italic slots — and Alacritty synthesizes it. Inside Ghostty, `Enter` writes `font-family`, `font-family-bold`, `font-family-italic` and `font-family-bold-italic`; every list is reset first because Ghostty appends fallbacks to values from earlier config files, and a style the family lacks is left empty so Ghostty derives it from the regular family. Elsewhere the family name is still printed; a missing config or directory is created.
+The right pane shows the family name, its styles, a `preview` block with the ASCII glyph sample, and the PostScript name and source file. Characters the selected font does not provide are omitted; fonts without scalable outlines or with too little ASCII coverage fall back to the text sample. `Enter` prints the selected family name to stdout; inside Alacritty it instead saves the chosen family to `alacritty.toml` directly: the normal, bold, italic and bold italic styles are matched automatically and written as inline tables inside `[font]` (for example `normal = { family = 'Maple Mono NF', style = 'Regular' }`), with a `<config>.bck` backup; Alacritty reloads the config automatically. Separate `[font.normal]` tables written by older versions are folded into that form. A style the family does not provide is removed instead of written — switching normal to Cascadia Mono NF also drops the old JetBrainsMono Nerd Font from the bold, italic and bold italic slots — and Alacritty synthesizes it. Inside Ghostty, `Enter` writes `font-family`, `font-family-bold`, `font-family-italic` and `font-family-bold-italic`; every list is reset first because Ghostty appends fallbacks to values from earlier config files, and a style the family lacks is left empty so Ghostty derives it from the regular family. Elsewhere the family name is still printed; a missing config or directory is created.
 
-In terminals that answer a graphics capability query — the Kitty graphics protocol (Kitty, Ghostty, WezTerm and other libghostty-based terminals) or iTerm2's inline image protocol (iTerm2, VS Code with `terminal.integrated.enableImages`) — the sample is rasterized from the selected font and placed in the pane, so it is a real preview. The terminal is queried directly before the browser starts; environment variables back this up for terminals that do not answer the query (some VS Code-based terminals implement inline images without replying). The image has a transparent background and its glyph color follows the terminal's reported background (falling back to `COLORFGBG`), so it stays readable on light and dark themes instead of drawing a colored card. When the terminal reports its cell pixel size (via `TIOCGWINSZ` or `CSI 16 t`), the sample is rasterized at exactly that size, so its glyphs match the terminal's own text instead of being rescaled. Elsewhere (other terminals, tmux) the sample is drawn with your terminal's current font and the pane says `cannot preview: kitty/iTerm2 image protocol not supported`. On Windows, console programs reach the terminal through ConPTY, which normally swallows graphics escapes, so images only appear in terminals whose ConPTY forwards them — Otty does; WezTerm builds from before its ConPTY workarounds do not and show the same fallback. `TSP_GRAPHICS=1` forces graphics there for terminals that work around this (a recent WezTerm nightly, for example). `TSP_GRAPHICS=0` disables image previews.
+In terminals that answer a graphics capability query — the Kitty graphics protocol (Kitty, Ghostty, WezTerm and other libghostty-based terminals) or iTerm2's inline image protocol (iTerm2, VS Code with `terminal.integrated.enableImages`) — the sample is rasterized from the selected font and placed in the pane, so it is a real preview. The terminal is queried directly before the browser starts; environment variables back this up for terminals that do not answer the query (some VS Code-based terminals implement inline images without replying). The image has a transparent background and its glyph color follows the terminal's reported background (falling back to `COLORFGBG`), so it stays readable on light and dark themes instead of drawing a colored card. When the terminal reports its cell pixel size (via `TIOCGWINSZ` or `CSI 16 t`), the sample is rasterized at exactly that size, so its glyphs match the terminal's own text instead of being rescaled. Elsewhere (other terminals, tmux) the sample is drawn with your terminal's current font and the pane says `cannot preview: kitty/iTerm2 image protocol not supported`. On Windows, console programs reach the terminal through ConPTY, which normally swallows graphics escapes, so images only appear in terminals whose ConPTY forwards them.
 
 | Key | Action |
 | --- | --- |
@@ -289,7 +309,7 @@ Previews are cached per theme and width, and are rendered on selection. At most 
 - A missing custom directory is fine; the Custom tab is simply empty.
 - Theme previews are static snapshots: content that depends on external tools or runtime state (virtualenv, kube context, clock) may be empty or stale; press `r` to render again.
 - Setting a theme only rewrites `.zshrc` or the shell profile; it does not affect shells that are already running.
-- `tsp fonts` prints nothing when you quit with `q`; only `Enter` emits the family name, or saves the family to the terminal config inside Alacritty and Ghostty.
+- `tsp fonts` prints nothing when you quit with `q`; only `Enter` emits the family name, or saves the family to the terminal config inside Alacritty and Ghostty and prints where it was saved.
 - Font samples are rasterized with `golang.org/x/image`; OpenType shaping features such as ligatures and stylistic sets are not applied.
 
 ## Releasing
@@ -309,7 +329,10 @@ install.sh              install script for macOS/Linux
 install.ps1             install script for Windows
 uninstall.sh            uninstall script for macOS/Linux
 uninstall.ps1           uninstall script for Windows
+scripts/verify-install.sh verifies install.sh against a local fake release
+scripts/verify-install.ps1 verifies install.ps1 against a local fake release
 internal/update/update.go self update from GitHub releases
+internal/fsutil/write.go atomic config writes that keep the file's mode
 internal/omz/theme.go   theme discovery ($ZSH/themes + $ZSH_CUSTOM)
 internal/omz/preview.go theme preview renderer, temporary HOME, cache
 internal/omz/ui.go      theme browser interface

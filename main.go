@@ -36,8 +36,10 @@ Run "tsp <command> -h" for the flags of a command.
 const updateUsage = `Usage:
   tsp update
 
-Update the running tsp binary to the latest GitHub release. The archive is
-verified against the release checksums before it replaces the current binary.
+Update the running tsp binary to the latest GitHub release. The archive must
+match the SHA-256 listed in the release checksums.txt; when the checksums are
+unavailable, do not list the archive, or disagree with it, the update is
+aborted and the current binary is left untouched.
 If tsp lives in a directory you cannot write to, run it with sudo or use the
 install script again.
 `

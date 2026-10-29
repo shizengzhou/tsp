@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/shizengzhou/tsp/internal/fsutil"
 )
 
 // SetTheme makes configPath import the theme and disables the inline [colors*]
@@ -28,11 +30,11 @@ func SetTheme(theme Theme, configPath, themeDir string) error {
 		return fmt.Errorf("create config directory: %w", err)
 	}
 	if existed {
-		if err := os.WriteFile(configPath+".bck", raw, 0o644); err != nil {
+		if err := fsutil.WriteFile(configPath+".bck", raw); err != nil {
 			return fmt.Errorf("write backup: %w", err)
 		}
 	}
-	if err := os.WriteFile(configPath, []byte(updated), 0o644); err != nil {
+	if err := fsutil.WriteFile(configPath, []byte(updated)); err != nil {
 		return fmt.Errorf("write %s: %w", configPath, err)
 	}
 	return nil

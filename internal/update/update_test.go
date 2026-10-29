@@ -195,6 +195,82 @@ func TestRunRejectsChecksumMismatch(t *testing.T) {
 	}
 }
 
+func TestRunRejectsMissingChecksums(t *testing.T) {
+	archive := testArchive(t, []byte("binary"))
+	name := archiveName("3.0.0")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/releases/latest":
+			http.Redirect(w, r, "/releases/tag/v3.0.0", http.StatusFound)
+		case "/releases/download/v3.0.0/" + name:
+			w.Write(archive)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	target := filepath.Join(t.TempDir(), "tsp")
+	if err := os.WriteFile(target, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	err := Run(Options{
+		CurrentVersion: "1.0.0",
+		Target:         target,
+		BaseURL:        server.URL,
+		Out:            &out,
+	})
+	if err == nil || !strings.Contains(err.Error(), "checksums.txt") {
+		t.Fatalf("Run() error = %v, want a missing checksums.txt", err)
+	}
+	got, _ := os.ReadFile(target)
+	if string(got) != "old" {
+		t.Errorf("target was modified without a checksum: %q", got)
+	}
+}
+
+func TestRunRejectsUnlistedArchive(t *testing.T) {
+	archive := testArchive(t, []byte("binary"))
+	name := archiveName("4.0.0")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/releases/latest":
+			http.Redirect(w, r, "/releases/tag/v4.0.0", http.StatusFound)
+		case "/releases/download/v4.0.0/" + name:
+			w.Write(archive)
+		case "/releases/download/v4.0.0/checksums.txt":
+			fmt.Fprintf(w, "%s  some-other-archive.tar.gz\n", strings.Repeat("0", 64))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	target := filepath.Join(t.TempDir(), "tsp")
+	if err := os.WriteFile(target, []byte("old"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	var out bytes.Buffer
+	err := Run(Options{
+		CurrentVersion: "1.0.0",
+		Target:         target,
+		BaseURL:        server.URL,
+		Out:            &out,
+	})
+	if err == nil || !strings.Contains(err.Error(), "not listed") {
+		t.Fatalf("Run() error = %v, want an unlisted archive", err)
+	}
+	got, _ := os.ReadFile(target)
+	if string(got) != "old" {
+		t.Errorf("target was modified without a listing: %q", got)
+	}
+}
+
 func TestLatestTagReadsTheRedirect(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/releases/latest" {

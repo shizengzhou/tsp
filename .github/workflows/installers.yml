@@ -1,0 +1,39 @@
+name: Installers
+
+on:
+  push:
+    paths:
+      - "install.sh"
+      - "install.ps1"
+      - "scripts/**"
+      - ".github/workflows/installers.yml"
+  pull_request:
+    paths:
+      - "install.sh"
+      - "install.ps1"
+      - "scripts/**"
+      - ".github/workflows/installers.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install-sh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify install.sh
+        run: bash scripts/verify-install.sh
+
+  install-ps1:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify install.ps1
+        shell: pwsh
+        run: ./scripts/verify-install.ps1

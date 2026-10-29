@@ -241,29 +241,26 @@ try {
     Invoke-WebRequest -Uri $downloadUrl -OutFile $archivePath -UseBasicParsing
 
     $checksumsPath = Join-Path $tmp 'checksums.txt'
-    $haveChecksums = $true
     try {
         Invoke-WebRequest -Uri "$BaseUrl/releases/download/$Version/checksums.txt" -OutFile $checksumsPath -UseBasicParsing
     } catch {
-        $haveChecksums = $false
-        Write-Host '  warning: checksums.txt unavailable, skipping verification'
+        throw "could not download checksums.txt for ${Version}: $($_.Exception.Message)"
     }
 
-    if ($haveChecksums) {
-        $entry = Get-Content -LiteralPath $checksumsPath |
-            Where-Object { (($_ -split '\s+')[-1]) -eq $archive } |
-            Select-Object -First 1
-        if ($entry) {
-            $expected = ($entry -split '\s+')[0]
-            $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $archivePath).Hash
-            if ($actual.ToLowerInvariant() -ne $expected.ToLowerInvariant()) {
-                throw "checksum mismatch for $archive"
-            }
-            Write-Host '  checksum verified'
-        } else {
-            Write-Host "  warning: $archive is not listed in checksums.txt"
-        }
+    # An unverified download is never installed: a missing entry, an unlisted
+    # archive, or a hash mismatch all abort the install.
+    $entry = Get-Content -LiteralPath $checksumsPath |
+        Where-Object { (($_ -split '\s+')[-1]) -eq $archive } |
+        Select-Object -First 1
+    if (-not $entry) {
+        throw "$archive is not listed in checksums.txt"
     }
+    $expected = ($entry -split '\s+')[0]
+    $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath $archivePath).Hash
+    if ($actual.ToLowerInvariant() -ne $expected.ToLowerInvariant()) {
+        throw "checksum mismatch for $archive"
+    }
+    Write-Host '  checksum verified'
 
     $extractDir = Join-Path $tmp 'extract'
     Expand-Archive -LiteralPath $archivePath -DestinationPath $extractDir -Force

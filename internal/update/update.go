@@ -202,24 +202,23 @@ func fetch(out io.Writer, url string) ([]byte, error) {
 	return data, err
 }
 
-// verifyChecksum compares the archive against checksums.txt when the release
-// provides one. A missing checksums file only produces a warning, matching the
-// install scripts; a mismatch aborts the update.
+// verifyChecksum compares the archive against checksums.txt. The update is
+// refused when the checksums cannot be fetched, when they do not list the
+// archive, or when the archive does not match them: an unverified download is
+// never installed.
 func verifyChecksum(out io.Writer, checksumsURL, archive string, data []byte) error {
 	resp, err := httpClient.Get(checksumsURL)
-	if err != nil || resp.StatusCode != http.StatusOK {
-		if resp != nil {
-			resp.Body.Close()
-		}
-		fmt.Fprintf(out, "  warning: checksums.txt unavailable, skipping verification\n")
-		return nil
+	if err != nil {
+		return fmt.Errorf("fetch %s: %w", checksumsURL, err)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("fetch %s: http %d", checksumsURL, resp.StatusCode)
+	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		fmt.Fprintf(out, "  warning: could not read checksums.txt\n")
-		return nil
+		return fmt.Errorf("read %s: %w", checksumsURL, err)
 	}
 	expected := ""
 	for _, line := range strings.Split(string(body), "\n") {
@@ -230,8 +229,7 @@ func verifyChecksum(out io.Writer, checksumsURL, archive string, data []byte) er
 		}
 	}
 	if expected == "" {
-		fmt.Fprintf(out, "  warning: %s is not listed in checksums.txt\n", archive)
-		return nil
+		return fmt.Errorf("%s is not listed in checksums.txt", archive)
 	}
 	sum := sha256.Sum256(data)
 	if hex.EncodeToString(sum[:]) != expected {

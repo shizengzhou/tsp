@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/shizengzhou/tsp/internal/fsutil"
 )
 
 // inlineStylePattern extracts the style value of an inline font table.
@@ -53,11 +55,11 @@ func SetFonts(slots []FontSlot, configPath string) (string, error) {
 		return "", fmt.Errorf("create config directory: %w", err)
 	}
 	if existed {
-		if err := os.WriteFile(path+".bck", raw, 0o644); err != nil {
+		if err := fsutil.WriteFile(path+".bck", raw); err != nil {
 			return "", fmt.Errorf("write backup: %w", err)
 		}
 	}
-	if err := os.WriteFile(path, []byte(updated), 0o644); err != nil {
+	if err := fsutil.WriteFile(path, []byte(updated)); err != nil {
 		return "", fmt.Errorf("write %s: %w", path, err)
 	}
 	return path, nil

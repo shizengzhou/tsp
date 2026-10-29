@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/shizengzhou/tsp/internal/fsutil"
 )
 
 // initLine matches the oh-my-posh init call of a shell profile, capturing the
@@ -84,10 +86,10 @@ func SetTheme(profile string, theme Theme) error {
 		return fmt.Errorf("no \"oh-my-posh init\" line in %s", profile)
 	}
 
-	if err := os.WriteFile(profile+".bck", raw, 0o644); err != nil {
+	if err := fsutil.WriteFile(profile+".bck", raw); err != nil {
 		return fmt.Errorf("write backup: %w", err)
 	}
-	if err := os.WriteFile(profile, []byte(strings.Join(lines, "\n")), 0o644); err != nil {
+	if err := fsutil.WriteFile(profile, []byte(strings.Join(lines, "\n"))); err != nil {
 		return fmt.Errorf("write %s: %w", profile, err)
 	}
 	return nil

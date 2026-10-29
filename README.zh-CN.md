@@ -20,6 +20,24 @@
 - `tsp omp themes`：`oh-my-posh` 在 `PATH` 中（主题来自 `$POSH_THEMES_PATH` 与安装器目录，含 Microsoft Store 包）
 - `tsp fonts`：除二进制外无额外依赖
 
+## 支持的终端
+
+| 终端 | 字体预览 | 回车写入字体配置 | 配色主题浏览 |
+| --- | --- | --- | --- |
+| Alacritty | 文本示例（无图形协议） | 是，写入 `alacritty.toml` | 是 |
+| Ghostty | 图片（Kitty graphics） | 是，写入其配置 | 是 |
+| WezTerm | 图片（Kitty graphics） | 否，只打印家族名 | 是 |
+| Kitty | 图片（Kitty graphics） | 否 | 否，直接报错退出 |
+| iTerm2 | 图片（iTerm2 inline image） | 否 | 否，直接报错退出 |
+| 开启 `terminal.integrated.enableImages` 的 VS Code | 图片（iTerm2 inline image） | 否 | 否 |
+| Otty（Windows，基于 libghostty） | 图片（Kitty graphics，经 ConPTY 转发） | 否 | 否 |
+| tmux | 文本示例 | 否 | 否 |
+| 其它终端（Terminal.app、Windows Terminal、Konsole、GNOME Terminal 等） | 文本示例 | 否 | 否 |
+
+- `tsp themes` 只在 Alacritty、WezTerm、Ghostty 内运行，因为其它终端看不到所选配色的效果。
+- 在 tmux 等没有图形协议的终端里，字体示例用终端当前字体绘制，并显示提示 `cannot preview: kitty/iTerm2 image protocol not supported`。
+- VS Code 的图片插件会把示例重采样到它自己的单元格网格，预览比原生终端更模糊。
+
 ## 安装
 
 ### 安装脚本
@@ -28,7 +46,7 @@
 curl -fsSL https://raw.githubusercontent.com/shizengzhou/tsp/main/install.sh | bash
 ```
 
-脚本会自动识别 macOS/Linux 与 amd64/arm64，校验 `checksums.txt`，并把 `tsp` 安装到 `~/.local/bin`。指定版本或安装位置：
+脚本会自动识别 macOS/Linux 与 amd64/arm64，用 `checksums.txt` 校验压缩包（缺失、未列出该压缩包或校验值不一致时拒绝安装），并把 `tsp` 安装到 `~/.local/bin`。指定版本或安装位置：
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/shizengzhou/tsp/main/install.sh \
@@ -48,7 +66,7 @@ irm https://raw.githubusercontent.com/shizengzhou/tsp/main/install.ps1 -OutFile 
 .\install.ps1 -Version v0.1.0 -InstallDir C:\Tools
 ```
 
-脚本会下载 Windows zip 包、校验 `checksums.txt`，把 `tsp.exe` 安装到 `%USERPROFILE%\.local\bin`，并把这个目录追加到用户 `Path`（同时更新当前会话的 PATH），新开终端即可直接运行 `tsp`，无需注销。用 `-InstallDir` 自定义目录时，脚本会把该目录记到 `%LOCALAPPDATA%\tsp\install.txt`，卸载时无需再指定。支持 Windows PowerShell 5.1+ 与 PowerShell 7。
+脚本会下载 Windows zip 包，用 `checksums.txt` 校验压缩包（缺失、未列出该压缩包或校验值不一致时拒绝安装），把 `tsp.exe` 安装到 `%USERPROFILE%\.local\bin`，并把这个目录追加到用户 `Path`（同时更新当前会话的 PATH），新开终端即可直接运行 `tsp`，无需注销。用 `-InstallDir` 自定义目录时，脚本会把该目录记到 `%LOCALAPPDATA%\tsp\install.txt`，卸载时无需再指定。支持 Windows PowerShell 5.1+ 与 PowerShell 7。
 
 > `tsp` 仍然需要 `PATH` 中有 `zsh` 与 oh-my-zsh（例如通过 MSYS2 安装）。使用 WSL 时，请直接在 WSL 内用 `install.sh` 安装 Linux 版本。
 
@@ -147,7 +165,7 @@ tsp version
 tsp update
 ```
 
-`tsp update` 会检查 GitHub 最新 release，按当前系统/架构下载对应压缩包，用 release 的校验和验证后原地替换当前二进制。若 tsp 所在目录不可写，可用 `sudo tsp update`，或重新运行安装脚本。`TSP_BASE_URL` 可覆盖仓库地址与下载地址，与安装脚本一致。
+`tsp update` 会检查 GitHub 最新 release，按当前系统/架构下载对应压缩包，用 release 的校验和验证后原地替换当前二进制。`checksums.txt` 缺失、未列出该压缩包或校验值不一致时一律拒绝更新，未经校验的下载不会被安装。若 tsp 所在目录不可写，可用 `sudo tsp update`，或重新运行安装脚本。`TSP_BASE_URL` 可覆盖仓库地址与下载地址，与安装脚本一致。
 
 ### 主题
 
@@ -238,7 +256,7 @@ tsp fonts
 
 右侧显示家族名、样式、带 ASCII 字形示例的 `preview` 区块，以及 PostScript 名和源文件。所选字体缺失的字符会被略去；ASCII 覆盖不足或没有可缩放轮廓的字体会退回文本示例。`Enter` 会把选中的家族名打印到 stdout；在 Alacritty 内则直接把所选家族保存到 Alacritty 配置（`alacritty.toml`）：自动匹配 normal、bold、italic、bold italic 四个样式，以统一的内联写法写入 `[font]` 表（例如 `normal = { family = 'Maple Mono NF', style = 'Regular' }`），并生成 `<config>.bck` 备份；Alacritty 会自动重载配置。旧版本写出的 `[font.normal]` 等独立表会一并合并成这种写法。家族缺少某个样式时不会写入对应项，并会清掉配置里遗留的同名字体（例如把 normal 换成 Cascadia Mono NF 后，其它样式里旧的 JetBrainsMono Nerd Font 会被移除），由 Alacritty 自行合成。在 Ghostty 内，`Enter` 会写入 `font-family`、`font-family-bold`、`font-family-italic` 与 `font-family-bold-italic`；每个列表都会先重置，因为 Ghostty 会把后面设置的值追加到前面配置文件的列表上；家族缺少的样式保持为空，由 Ghostty 从常规字体派生。其它终端仍只打印家族名；配置或目录不存在时会新建。
 
-在能响应图形能力查询的终端中——Kitty graphics 协议（Kitty、Ghostty、WezTerm 以及其他基于 libghostty 的终端）或 iTerm2 inline image 协议（iTerm2、开启 `terminal.integrated.enableImages` 的 VS Code）——示例会用所选字体栅格化成图片并贴到右侧，是真实预览。启动浏览器前会直接向终端查询能力；对不响应查询的终端（部分 VS Code 系终端只实现了 inline image 而不响应查询）再用环境变量兜底。图片背景透明，字形颜色会根据终端上报的背景色（无法获取时回退 `COLORFGBG`）自动选择深色或浅色，因此在明/暗主题下都清晰可读，也不会出现色块。终端上报单元格像素尺寸时（`TIOCGWINSZ` 或 `CSI 16 t`），示例会按该尺寸栅格化，字形大小与终端自身文字一致，而不是被终端缩放。其他终端与 tmux 无法预览图片，会退回用终端当前字体绘制的文本示例，并显示英文提示 `cannot preview: kitty/iTerm2 image protocol not supported`。Windows 上，控制台程序的输出要经过 ConPTY，而 ConPTY 通常会丢弃图形转义序列，因此只有自带 ConPTY 并会转发这些序列的终端才能显示图片预览（Otty 可以；尚未处理 ConPTY 的旧版 WezTerm 会退回同样的文本示例与提示）。对这类终端可用 `TSP_GRAPHICS=1` 强制启用图形。`TSP_GRAPHICS=0` 可关闭图片预览。
+在能响应图形能力查询的终端中——Kitty graphics 协议（Kitty、Ghostty、WezTerm 以及其他基于 libghostty 的终端）或 iTerm2 inline image 协议（iTerm2、开启 `terminal.integrated.enableImages` 的 VS Code）——示例会用所选字体栅格化成图片并贴到右侧，是真实预览。启动浏览器前会直接向终端查询能力；对不响应查询的终端（部分 VS Code 系终端只实现了 inline image 而不响应查询）再用环境变量兜底。图片背景透明，字形颜色会根据终端上报的背景色（无法获取时回退 `COLORFGBG`）自动选择深色或浅色，因此在明/暗主题下都清晰可读，也不会出现色块。终端上报单元格像素尺寸时（`TIOCGWINSZ` 或 `CSI 16 t`），示例会按该尺寸栅格化，字形大小与终端自身文字一致，而不是被终端缩放。其他终端与 tmux 无法预览图片，会退回用终端当前字体绘制的文本示例，并显示英文提示 `cannot preview: kitty/iTerm2 image protocol not supported`。Windows 上，控制台程序的输出要经过 ConPTY，而 ConPTY 通常会丢弃图形转义序列，因此只有自带 ConPTY 并会转发这些序列的终端才能显示图片预览。
 
 | 按键 | 动作 |
 | --- | --- |
@@ -293,7 +311,10 @@ install.sh              macOS/Linux 安装脚本
 install.ps1             Windows 安装脚本
 uninstall.sh            macOS/Linux 卸载脚本
 uninstall.ps1           Windows 卸载脚本
+scripts/verify-install.sh 用本地假 release 验证 install.sh
+scripts/verify-install.ps1 PowerShell 下验证 install.ps1
 internal/update/update.go 从 GitHub release 自更新
+internal/fsutil/write.go 原子写入并保留原权限的配置写入辅助
 internal/omz/theme.go   主题发现（$ZSH/themes + $ZSH_CUSTOM）
 internal/omz/preview.go 主题预览渲染器、临时 HOME、结果缓存
 internal/omz/ui.go      主题浏览器界面
