@@ -3,13 +3,16 @@ package main
 import (
 	"flag"
 	"fmt"
+	"math/rand/v2"
 	"os"
+	"time"
 
 	"github.com/shizengzhou/tsp/internal/alacritty"
 	"github.com/shizengzhou/tsp/internal/fonts"
 	"github.com/shizengzhou/tsp/internal/ghostty"
 	"github.com/shizengzhou/tsp/internal/omp"
 	"github.com/shizengzhou/tsp/internal/omz"
+	"github.com/shizengzhou/tsp/internal/themebrowser"
 	"github.com/shizengzhou/tsp/internal/update"
 	"github.com/shizengzhou/tsp/internal/wezterm"
 )
@@ -18,6 +21,9 @@ const usage = `tsp is a collection of small terminal tools.
 
 Usage:
   tsp themes [flags]        browse and apply alacritty, wezterm or ghostty color themes
+  tsp themes list           print the available theme names
+  tsp themes set NAME       apply a theme directly
+  tsp themes rand           apply a random theme
   tsp omz themes [flags]    browse and preview oh-my-zsh themes
   tsp omp themes [flags]    browse and preview oh-my-posh themes
   tsp fonts [flags]         browse monospaced fonts, print or save the chosen family
@@ -40,7 +46,10 @@ install script again.
 var version = "dev"
 
 const themesUsage = `Usage:
-  tsp themes [flags]
+  tsp themes [flags]                 browse and apply a theme
+  tsp themes list [--themes DIR]     print the available theme names
+  tsp themes set [flags] NAME        apply NAME directly
+  tsp themes rand [flags]            apply a random theme
 
 Browse alacritty, wezterm or ghostty color themes: the list is on the left, a
 live palette and a sample of terminal output on the right. It must be run
@@ -72,6 +81,44 @@ Flags:
 Keys:
   ↑/↓ j/k   move        /   filter       ⏎  apply theme and quit
   q         quit        esc clear filter
+`
+
+const themesListUsage = `Usage:
+  tsp themes list [--themes DIR]
+
+Print the names of the themes available for the terminal tsp runs in, one per
+line. Inside alacritty the themes are downloaded first when the directory does
+not exist yet.
+
+Flags:
+  --themes DIR   alacritty theme directory (default <alacritty config dir>/themes)
+`
+
+const themesSetUsage = `Usage:
+  tsp themes set [flags] NAME
+
+Apply the named theme directly without opening the browser. The name must be
+one of the names printed by "tsp themes list". A .bck backup of the config is
+kept.
+
+Flags:
+  --themes DIR   alacritty theme directory (default <alacritty config dir>/themes)
+  --config FILE  terminal config to edit (default alacritty.toml, wezterm.lua,
+                 or the Ghostty config)
+`
+
+const themesRandUsage = `Usage:
+  tsp themes rand [flags]
+
+Apply a random theme from the ones available for the terminal tsp runs in,
+without opening the browser. A one-line roulette previews random themes in
+their own colors when stdout is a terminal. A .bck backup of the config is
+kept.
+
+Flags:
+  --themes DIR   alacritty theme directory (default <alacritty config dir>/themes)
+  --config FILE  terminal config to edit (default alacritty.toml, wezterm.lua,
+                 or the Ghostty config)
 `
 
 const omzUsage = `Usage:
@@ -251,6 +298,34 @@ func fontSlots(choice fonts.Choice) []alacritty.FontSlot {
 }
 
 func runThemes(args []string) error {
+	if len(args) > 0 {
+		switch args[0] {
+		case "list":
+			return runThemesList(args[1:])
+		case "set":
+			return runThemesSet(args[1:])
+		case "rand":
+			return runThemesRand(args[1:])
+		}
+	}
+	return runThemeBrowser(args)
+}
+
+// themesTerminal names the terminal tsp is running in.
+func themesTerminal() (string, error) {
+	switch {
+	case alacritty.RunningInAlacritty():
+		return "alacritty", nil
+	case wezterm.RunningInWezTerm():
+		return "wezterm", nil
+	case ghostty.RunningInGhostty():
+		return "ghostty", nil
+	}
+	return "", fmt.Errorf("tsp themes currently supports alacritty, wezterm and ghostty; run it inside one of them (TERM=%q, TERM_PROGRAM=%q)",
+		os.Getenv("TERM"), os.Getenv("TERM_PROGRAM"))
+}
+
+func runThemeBrowser(args []string) error {
 	opts := alacritty.Options{}
 	fs := flag.NewFlagSet("tsp themes", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
@@ -264,23 +339,152 @@ func runThemes(args []string) error {
 		return fmt.Errorf("unexpected argument %q", fs.Arg(0))
 	}
 
-	if alacritty.RunningInAlacritty() {
-		return alacritty.Run(opts)
+	terminal, err := themesTerminal()
+	if err != nil {
+		return err
 	}
-	if wezterm.RunningInWezTerm() {
+	switch terminal {
+	case "alacritty":
+		return alacritty.Run(opts)
+	case "wezterm":
 		if opts.ThemeDir != "" {
 			return fmt.Errorf("--themes is only used by alacritty; wezterm uses its built-in color schemes")
 		}
 		return wezterm.Run(wezterm.Options{ConfigFile: opts.ConfigFile})
-	}
-	if ghostty.RunningInGhostty() {
+	default:
 		if opts.ThemeDir != "" {
 			return fmt.Errorf("--themes is only used by alacritty; ghostty reads its theme directories")
 		}
 		return ghostty.Run(ghostty.Options{ConfigFile: opts.ConfigFile})
 	}
-	return fmt.Errorf("tsp themes currently supports alacritty, wezterm and ghostty; run it inside one of them (TERM=%q, TERM_PROGRAM=%q)",
-		os.Getenv("TERM"), os.Getenv("TERM_PROGRAM"))
+}
+
+func runThemesList(args []string) error {
+	opts := alacritty.Options{}
+	fs := flag.NewFlagSet("tsp themes list", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	fs.StringVar(&opts.ThemeDir, "themes", "", "")
+	fs.Usage = func() { fmt.Print(themesListUsage) }
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() > 0 {
+		return fmt.Errorf("unexpected argument %q", fs.Arg(0))
+	}
+
+	terminal, err := themesTerminal()
+	if err != nil {
+		return err
+	}
+	themes, err := themeList(terminal, opts)
+	if err != nil {
+		return err
+	}
+	for _, name := range themebrowser.Names(themes) {
+		fmt.Println(name)
+	}
+	return nil
+}
+
+func runThemesSet(args []string) error {
+	opts := alacritty.Options{}
+	fs := flag.NewFlagSet("tsp themes set", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	fs.StringVar(&opts.ThemeDir, "themes", "", "")
+	fs.StringVar(&opts.ConfigFile, "config", "", "")
+	fs.Usage = func() { fmt.Print(themesSetUsage) }
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() != 1 {
+		return fmt.Errorf("expected exactly one theme name")
+	}
+	name := fs.Arg(0)
+
+	terminal, err := themesTerminal()
+	if err != nil {
+		return err
+	}
+	path, err := applyTheme(terminal, name, opts)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("applied %q to %s\n", name, path)
+	return nil
+}
+
+func runThemesRand(args []string) error {
+	opts := alacritty.Options{}
+	fs := flag.NewFlagSet("tsp themes rand", flag.ContinueOnError)
+	fs.SetOutput(os.Stderr)
+	fs.StringVar(&opts.ThemeDir, "themes", "", "")
+	fs.StringVar(&opts.ConfigFile, "config", "", "")
+	fs.Usage = func() { fmt.Print(themesRandUsage) }
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if fs.NArg() > 0 {
+		return fmt.Errorf("unexpected argument %q", fs.Arg(0))
+	}
+
+	terminal, err := themesTerminal()
+	if err != nil {
+		return err
+	}
+	themes, err := themeList(terminal, opts)
+	if err != nil {
+		return err
+	}
+	if len(themes) == 0 {
+		return fmt.Errorf("no themes available for %s", terminal)
+	}
+	if themebrowser.IsTerminal(os.Stdout) {
+		spinThemes(os.Stdout, themes, time.Sleep)
+	}
+	theme := themes[rand.IntN(len(themes))]
+	path, err := applyTheme(terminal, theme.Name, opts)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("applied %q to %s\n", theme.Name, path)
+	return nil
+}
+
+// themeList returns the themes available to the given terminal.
+func themeList(terminal string, opts alacritty.Options) ([]themebrowser.Theme, error) {
+	switch terminal {
+	case "alacritty":
+		return alacritty.Themes(opts)
+	case "wezterm":
+		if opts.ThemeDir != "" {
+			return nil, fmt.Errorf("--themes is only used by alacritty; wezterm uses its built-in color schemes")
+		}
+		return wezterm.Schemes()
+	default:
+		if opts.ThemeDir != "" {
+			return nil, fmt.Errorf("--themes is only used by alacritty; ghostty reads its theme directories")
+		}
+		return ghostty.Discover()
+	}
+}
+
+// applyTheme writes the named theme for the given terminal and returns the
+// config path.
+func applyTheme(terminal, name string, opts alacritty.Options) (string, error) {
+	switch terminal {
+	case "alacritty":
+		return alacritty.SetByName(name, opts)
+	case "wezterm":
+		if opts.ThemeDir != "" {
+			return "", fmt.Errorf("--themes is only used by alacritty; wezterm uses its built-in color schemes")
+		}
+		return wezterm.SetByName(name, opts.ConfigFile)
+	default:
+		if opts.ThemeDir != "" {
+			return "", fmt.Errorf("--themes is only used by alacritty; ghostty reads its theme directories")
+		}
+		return ghostty.SetByName(name, opts.ConfigFile)
+	}
 }
 
 func runUpdate(args []string) error {

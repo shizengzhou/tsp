@@ -27,36 +27,7 @@ func Run(opts Options) error {
 			os.Getenv("TERM"), os.Getenv("TERM_PROGRAM"))
 	}
 
-	themeDir := opts.ThemeDir
-	var err error
-	if themeDir == "" {
-		themeDir, err = ThemeDir()
-		if err != nil {
-			return err
-		}
-	}
-	themeDir, err = filepath.Abs(expandHome(themeDir))
-	if err != nil {
-		return err
-	}
-
-	configPath := opts.ConfigFile
-	if configPath == "" {
-		configPath, err = ConfigFile()
-		if err != nil {
-			return err
-		}
-	}
-	configPath, err = filepath.Abs(expandHome(configPath))
-	if err != nil {
-		return err
-	}
-
-	if err := ensureThemes(themeDir); err != nil {
-		return err
-	}
-
-	themes, err := Discover(themeDir)
+	themes, themeDir, configPath, err := prepare(opts)
 	if err != nil {
 		return err
 	}
@@ -64,6 +35,80 @@ func Run(opts Options) error {
 	apply := func(theme Theme) error { return SetTheme(theme, configPath, themeDir) }
 	uiOpts := themebrowser.Options{Kind: "alacritty", Reload: "alacritty reloads automatically"}
 	return themebrowser.Run(themes, uiOpts, apply)
+}
+
+// Themes returns the discovered alacritty themes, downloading them on first
+// use.
+func Themes(opts Options) ([]Theme, error) {
+	themes, _, _, err := prepare(opts)
+	if err != nil {
+		return nil, err
+	}
+	return themes, nil
+}
+
+// List returns the alacritty theme names, downloading the themes on first use.
+func List(opts Options) ([]string, error) {
+	themes, err := Themes(opts)
+	if err != nil {
+		return nil, err
+	}
+	return themebrowser.Names(themes), nil
+}
+
+// SetByName applies the named theme and returns the config path it was written
+// to.
+func SetByName(name string, opts Options) (string, error) {
+	themes, themeDir, configPath, err := prepare(opts)
+	if err != nil {
+		return "", err
+	}
+	for _, theme := range themes {
+		if theme.Name == name {
+			if err := SetTheme(theme, configPath, themeDir); err != nil {
+				return "", err
+			}
+			return configPath, nil
+		}
+	}
+	return "", fmt.Errorf("no alacritty theme named %q", name)
+}
+
+// prepare resolves the theme directory and config, downloading the themes when
+// the directory does not exist yet.
+func prepare(opts Options) (themes []Theme, themeDir, configPath string, err error) {
+	themeDir = opts.ThemeDir
+	if themeDir == "" {
+		themeDir, err = ThemeDir()
+		if err != nil {
+			return nil, "", "", err
+		}
+	}
+	themeDir, err = filepath.Abs(expandHome(themeDir))
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	configPath = opts.ConfigFile
+	if configPath == "" {
+		configPath, err = ConfigFile()
+		if err != nil {
+			return nil, "", "", err
+		}
+	}
+	configPath, err = filepath.Abs(expandHome(configPath))
+	if err != nil {
+		return nil, "", "", err
+	}
+
+	if err := ensureThemes(themeDir); err != nil {
+		return nil, "", "", err
+	}
+	themes, err = Discover(themeDir)
+	if err != nil {
+		return nil, "", "", err
+	}
+	return themes, themeDir, configPath, nil
 }
 
 // RunningInAlacritty reports whether tsp runs inside alacritty, so commands

@@ -27,15 +27,7 @@ func Run(opts Options) error {
 	if err != nil {
 		return err
 	}
-
-	configPath := opts.ConfigFile
-	if configPath == "" {
-		configPath, err = ConfigFile()
-		if err != nil {
-			return err
-		}
-	}
-	configPath, err = filepath.Abs(themebrowser.ExpandHome(configPath))
+	configPath, err := resolveConfig(opts.ConfigFile)
 	if err != nil {
 		return err
 	}
@@ -43,4 +35,53 @@ func Run(opts Options) error {
 	apply := func(theme themebrowser.Theme) error { return SetTheme(theme.Name, configPath) }
 	uiOpts := themebrowser.Options{Kind: "wezterm", Reload: "wezterm reloads automatically"}
 	return themebrowser.Run(themes, uiOpts, apply)
+}
+
+// List returns the names of the color schemes built into WezTerm.
+func List() ([]string, error) {
+	themes, err := Schemes()
+	if err != nil {
+		return nil, err
+	}
+	return themebrowser.Names(themes), nil
+}
+
+// SetByName applies the named built-in scheme and returns the config path it
+// was written to.
+func SetByName(name, configFile string) (string, error) {
+	themes, err := Schemes()
+	if err != nil {
+		return "", err
+	}
+	found := false
+	for _, theme := range themes {
+		if theme.Name == name {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return "", fmt.Errorf("no wezterm theme named %q", name)
+	}
+
+	path, err := resolveConfig(configFile)
+	if err != nil {
+		return "", err
+	}
+	if err := SetTheme(name, path); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// resolveConfig returns the absolute path of the config to edit.
+func resolveConfig(configFile string) (string, error) {
+	if configFile == "" {
+		path, err := ConfigFile()
+		if err != nil {
+			return "", err
+		}
+		configFile = path
+	}
+	return filepath.Abs(themebrowser.ExpandHome(configFile))
 }

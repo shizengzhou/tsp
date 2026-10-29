@@ -1,6 +1,51 @@
 package alacritty
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestListAndSetByName(t *testing.T) {
+	dir := t.TempDir()
+	themeDir := filepath.Join(dir, "themes")
+	if err := os.MkdirAll(themeDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(themeDir, "Demo.toml"), []byte(sampleTheme), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	configPath := filepath.Join(dir, "alacritty.toml")
+
+	opts := Options{ThemeDir: themeDir, ConfigFile: configPath}
+	names, err := List(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(names) != 1 || names[0] != "Demo" {
+		t.Fatalf("List() = %v, want [Demo]", names)
+	}
+
+	path, err := SetByName("Demo", opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want, _ := filepath.Abs(configPath); path != want {
+		t.Errorf("SetByName() path = %q, want %q", path, want)
+	}
+	raw, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), "Demo.toml") {
+		t.Errorf("config does not import the theme:\n%s", raw)
+	}
+
+	if _, err := SetByName("Missing", opts); err == nil {
+		t.Fatal("SetByName(Missing) error = nil, want an error")
+	}
+}
 
 func TestIsAlacrittyEnv(t *testing.T) {
 	cases := []struct {

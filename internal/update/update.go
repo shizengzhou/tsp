@@ -69,7 +69,7 @@ func Run(opts Options) error {
 	defer os.RemoveAll(tmpDir)
 
 	archivePath := filepath.Join(tmpDir, archive)
-	data, err := fetch(downloadURL)
+	data, err := fetch(out, downloadURL)
 	if err != nil {
 		return fmt.Errorf("download %s: %w", archive, err)
 	}
@@ -179,7 +179,7 @@ func archiveName(version string) string {
 	return fmt.Sprintf("tsp_%s_%s_%s.%s", version, runtime.GOOS, runtime.GOARCH, ext)
 }
 
-func fetch(url string) ([]byte, error) {
+func fetch(out io.Writer, url string) ([]byte, error) {
 	resp, err := httpClient.Get(url)
 	if err != nil {
 		return nil, err
@@ -188,7 +188,18 @@ func fetch(url string) ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("http %d", resp.StatusCode)
 	}
-	return io.ReadAll(io.LimitReader(resp.Body, 64<<20))
+
+	var body io.Reader = io.LimitReader(resp.Body, 64<<20)
+	var progress *progressReader
+	if isTerminal(out) {
+		progress = &progressReader{reader: body, out: out, total: resp.ContentLength}
+		body = progress
+	}
+	data, err := io.ReadAll(body)
+	if progress != nil {
+		progress.finish()
+	}
+	return data, err
 }
 
 // verifyChecksum compares the archive against checksums.txt when the release

@@ -22,6 +22,15 @@ type Theme struct {
 	Bright     [8]string
 }
 
+// Names returns the theme names in their current order.
+func Names(themes []Theme) []string {
+	names := make([]string, len(themes))
+	for i, theme := range themes {
+		names[i] = theme.Name
+	}
+	return names
+}
+
 // NormalizeColor validates a "#rrggbb" (or "#rgb") color and lower-cases it.
 func NormalizeColor(value string) (string, bool) {
 	if !strings.HasPrefix(value, "#") {
