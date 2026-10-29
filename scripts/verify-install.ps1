@@ -176,3 +176,9 @@ try {
 	Remove-Item -LiteralPath $work -Recurse -Force -ErrorAction SilentlyContinue
 	$env:LOCALAPPDATA = $oldLocalAppData
 }
+
+# GitHub Actions appends "exit $LASTEXITCODE" to pwsh steps, and the refusal
+# checks deliberately run install.ps1 with a failing exit code. Clear it so the
+# step reports success once every check has passed; an earlier throw still
+# terminates the script before this line.
+exit 0
