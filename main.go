@@ -15,6 +15,7 @@ import (
 	"github.com/shizengzhou/tsp/internal/themebrowser"
 	"github.com/shizengzhou/tsp/internal/update"
 	"github.com/shizengzhou/tsp/internal/wezterm"
+	"github.com/shizengzhou/tsp/internal/windowsterminal"
 )
 
 const usage = `tsp is a collection of small terminal tools.
@@ -53,9 +54,9 @@ const themesUsage = `Usage:
   tsp themes set [flags] NAME        apply NAME directly
   tsp themes rand [flags]            apply a random theme
 
-Browse alacritty, wezterm or ghostty color themes: the list is on the left, a
-live palette and a sample of terminal output on the right. It must be run
-inside alacritty, wezterm or ghostty, since the selected colors are only
+Browse alacritty, wezterm, ghostty or Windows Terminal color themes: the list is
+on the left, a live palette and a sample of terminal output on the right. It
+must be run inside one of those terminals, since the selected colors are only
 visible there; otherwise it exits with an error.
 
 Inside alacritty, when the themes directory does not exist yet, the alacritty
@@ -74,11 +75,15 @@ Enter writes theme = Name to the Ghostty config and comments out background,
 foreground, palette and cursor colors that would override it (a .bck backup of
 the config is kept).
 
+Inside Windows Terminal, the schemes defined in settings.json are listed (the
+schemes built into the app are not in that file, so add them in Windows
+Terminal first). Enter sets profiles.defaults.colorScheme (a .bck backup of
+settings.json is kept; Windows Terminal reloads it automatically).
+
 Flags:
   --themes DIR   alacritty theme directory (default <alacritty config dir>/themes)
   --config FILE  terminal config to edit (default alacritty.toml, wezterm.lua,
-                 or the Ghostty config: the macOS application support config
-                 when it already exists, otherwise the XDG config)
+                 the Ghostty config, or the Windows Terminal settings.json)
 
 Keys:
   ↑/↓ j/k   move        /   filter       ⏎  apply theme
@@ -160,10 +165,10 @@ const fontsUsage = `Usage:
 
 Browse installed monospaced font families: the family list is on the left,
 styles and a glyph sample on the right. Enter prints the chosen family name to
-stdout. When tsp runs inside alacritty or ghostty, Enter instead saves the
-family's normal, bold, italic and bold italic faces to the terminal config
-(alacritty.toml or the Ghostty config); a .bck backup of the config is kept,
-and alacritty reloads it automatically.
+stdout. When tsp runs inside alacritty, ghostty or Windows Terminal, Enter
+instead saves the family to the terminal config (alacritty.toml, the Ghostty
+config, or profiles.defaults.font.face in Windows Terminal's settings.json);
+a .bck backup of the config is kept, and the terminals reload it automatically.
 
 Keys:
   ↑/↓ j/k   move        /   filter       ⏎  choose
@@ -222,8 +227,9 @@ func runFonts(args []string) error {
 		}
 	}
 
-	// Inside alacritty and ghostty the choice can be saved to the terminal
-	// config; everywhere else the family name is printed so it stays scriptable.
+	// Inside alacritty, ghostty and Windows Terminal the choice can be saved to
+	// the terminal config; everywhere else the family name is printed so it
+	// stays scriptable.
 	if alacritty.RunningInAlacritty() {
 		configPath, err := alacritty.ConfigFile()
 		if err != nil {
@@ -245,6 +251,18 @@ func runFonts(args []string) error {
 			ChooseHint: "Press Enter to save this font to ghostty",
 			Apply: func(choice fonts.Choice) (string, error) {
 				return ghostty.SetFonts(ghosttyFonts(choice), configPath)
+			},
+		})
+	}
+	if windowsterminal.RunningInWindowsTerminal() {
+		settingsPath, err := windowsterminal.SettingsFile()
+		if err != nil {
+			return err
+		}
+		return fonts.RunFonts(fonts.Options{
+			ChooseHint: "Press Enter to save this font to Windows Terminal",
+			Apply: func(choice fonts.Choice) (string, error) {
+				return windowsterminal.SetFont(choice.Family, settingsPath)
 			},
 		})
 	}
@@ -322,8 +340,10 @@ func themesTerminal() (string, error) {
 		return "wezterm", nil
 	case ghostty.RunningInGhostty():
 		return "ghostty", nil
+	case windowsterminal.RunningInWindowsTerminal():
+		return "windowsterminal", nil
 	}
-	return "", fmt.Errorf("tsp themes currently supports alacritty, wezterm and ghostty; run it inside one of them (TERM=%q, TERM_PROGRAM=%q)",
+	return "", fmt.Errorf("tsp themes currently supports alacritty, wezterm, ghostty and Windows Terminal; run it inside one of them (TERM=%q, TERM_PROGRAM=%q)",
 		os.Getenv("TERM"), os.Getenv("TERM_PROGRAM"))
 }
 
@@ -353,6 +373,11 @@ func runThemeBrowser(args []string) error {
 			return fmt.Errorf("--themes is only used by alacritty; wezterm uses its built-in color schemes")
 		}
 		return wezterm.Run(wezterm.Options{ConfigFile: opts.ConfigFile})
+	case "windowsterminal":
+		if opts.ThemeDir != "" {
+			return fmt.Errorf("--themes is only used by alacritty; Windows Terminal reads schemes from settings.json")
+		}
+		return windowsterminal.Run(windowsterminal.Options{ConfigFile: opts.ConfigFile})
 	default:
 		if opts.ThemeDir != "" {
 			return fmt.Errorf("--themes is only used by alacritty; ghostty reads its theme directories")
@@ -462,6 +487,15 @@ func themeList(terminal string, opts alacritty.Options) ([]themebrowser.Theme, e
 			return nil, fmt.Errorf("--themes is only used by alacritty; wezterm uses its built-in color schemes")
 		}
 		return wezterm.Schemes()
+	case "windowsterminal":
+		if opts.ThemeDir != "" {
+			return nil, fmt.Errorf("--themes is only used by alacritty; Windows Terminal reads schemes from settings.json")
+		}
+		path, err := windowsterminal.ResolveSettings(opts.ConfigFile)
+		if err != nil {
+			return nil, err
+		}
+		return windowsterminal.Schemes(path)
 	default:
 		if opts.ThemeDir != "" {
 			return nil, fmt.Errorf("--themes is only used by alacritty; ghostty reads its theme directories")
@@ -481,6 +515,11 @@ func applyTheme(terminal, name string, opts alacritty.Options) (string, error) {
 			return "", fmt.Errorf("--themes is only used by alacritty; wezterm uses its built-in color schemes")
 		}
 		return wezterm.SetByName(name, opts.ConfigFile)
+	case "windowsterminal":
+		if opts.ThemeDir != "" {
+			return "", fmt.Errorf("--themes is only used by alacritty; Windows Terminal reads schemes from settings.json")
+		}
+		return windowsterminal.SetByName(name, opts.ConfigFile)
 	default:
 		if opts.ThemeDir != "" {
 			return "", fmt.Errorf("--themes is only used by alacritty; ghostty reads its theme directories")
