@@ -381,15 +381,15 @@ func (m *UI) listWidth() int {
 			widest = w
 		}
 	}
-	w := widest + 4
+	w := widest + 2
 	if w < 22 {
 		w = 22
 	}
 	if limit := m.width / 3; w > limit {
 		w = limit
 	}
-	if m.width-w-2 < 24 {
-		w = m.width - 26
+	if m.width-w < 24 {
+		w = m.width - 24
 	}
 	if w < 12 {
 		w = 12
@@ -398,17 +398,17 @@ func (m *UI) listWidth() int {
 }
 
 func (m *UI) previewWidth() int {
-	w := m.width - m.listWidth() - 2
+	w := m.width - m.listWidth()
 	if w < 8 {
 		w = 8
 	}
 	return w
 }
 
-// previewCols is the width zsh renders against; it excludes the text indent
-// and leaves one column free so a trailing reset cannot wrap the line.
+// previewCols is the width zsh renders against; it leaves one column free so a
+// trailing reset cannot wrap the line.
 func (m *UI) previewCols() int {
-	cols := m.previewWidth() - 4
+	cols := m.previewWidth() - 1
 	if cols < 20 {
 		cols = 20
 	}
@@ -449,7 +449,7 @@ func (m *UI) headerView() string {
 	tabs := m.tabLabel(0, fmt.Sprintf("All %d", len(m.themes))) + " " +
 		m.tabLabel(1, fmt.Sprintf("Custom %d", m.countCustom()))
 
-	left := "  " + tabs
+	left := tabs
 
 	var right string
 	switch {
@@ -457,11 +457,9 @@ func (m *UI) headerView() string {
 		right = fmt.Sprintf("filter %s▌  %d/%d", m.query, len(m.visible()), m.tabTotal())
 	case m.query != "":
 		right = fmt.Sprintf("filter %s  %d/%d  esc clear", m.query, len(m.visible()), m.tabTotal())
-	default:
-		right = fmt.Sprintf("%d themes", m.tabTotal())
 	}
 
-	rightStyled := styleMuted.Render(right) + "  "
+	rightStyled := styleMuted.Render(right)
 	if m.width < 54 {
 		rightStyled = ""
 	}
@@ -493,8 +491,7 @@ func (m *UI) bodyView() string {
 			r = right[i]
 		}
 		b.WriteString(padWidth(l, listWidth))
-		b.WriteString("  ")
-		b.WriteString(ansi.Truncate(r, previewWidth-1, "…"))
+		b.WriteString(ansi.Truncate(r, previewWidth, "…"))
 		b.WriteString("\x1b[0m")
 		if i != height-1 {
 			b.WriteByte('\n')
@@ -531,42 +528,42 @@ func (m *UI) previewView(width, height int) []string {
 	theme, ok := m.selectedTheme()
 	if !ok {
 		add("")
-		add("  " + styleMuted.Render("no matching themes"))
+		add(styleMuted.Render("no matching themes"))
 		return fitRows(lines, height)
 	}
 
-	title := "  " + styleText.Bold(true).Render(theme.Name)
+	title := styleText.Bold(true).Render(theme.Name)
 	if theme.Custom {
 		title += " " + styleFaint.Render("custom")
 	}
 	add(title)
-	add("  " + styleFaint.Render(shortenPath(theme.Path, m.home, width-4)))
+	add(styleFaint.Render(shortenPath(theme.Path, m.home, width-1)))
 	add("")
 
 	switch {
 	case m.loading:
-		add("  " + styleMuted.Render("rendering preview…"))
+		add(styleMuted.Render("rendering preview…"))
 
 	case m.current == nil:
 
 	case m.current.Err != "":
-		add("  " + styleDanger.Render("theme failed to render"))
+		add(styleDanger.Render("theme failed to render"))
 		for _, line := range strings.Split(m.current.Err, "\n") {
-			add("  " + styleFaint.Render(ansi.Truncate(line, width-4, "…")))
+			add(styleFaint.Render(ansi.Truncate(line, width-1, "…")))
 		}
 
 	default:
 		for _, scene := range m.current.Scenes {
-			add("  " + styleFaint.Render("▸ ") + styleMuted.Render(scene.Label))
+			add(styleFaint.Render("▸ ") + styleMuted.Render(scene.Label))
 			for i, line := range scene.Lines {
 				if i == len(scene.Lines)-1 && scene.Right != "" {
-					line = alignRight(line, scene.Right, width-4)
+					line = alignRight(line, scene.Right, width-1)
 				}
-				limit := width - 4
+				limit := width - 1
 				if limit < 4 {
 					limit = 4
 				}
-				add("   " + ansi.Truncate(line, limit, "…") + "\x1b[0m")
+				add(ansi.Truncate(line, limit, "…") + "\x1b[0m")
 			}
 			add("")
 		}
@@ -595,18 +592,13 @@ func (m *UI) footerView() string {
 }
 
 func fitRows(lines []string, height int) []string {
-	if len(lines) <= height {
-		for len(lines) < height {
-			lines = append(lines, "")
-		}
-		return lines
+	if len(lines) > height {
+		return lines[:height]
 	}
-	if height <= 1 {
-		return lines[:1]
+	for len(lines) < height {
+		lines = append(lines, "")
 	}
-	visible := append([]string{}, lines[:height-1]...)
-	visible = append(visible, styleFaint.Render("  …"))
-	return visible
+	return lines
 }
 
 func joinPadded(left, right string, width int) string {

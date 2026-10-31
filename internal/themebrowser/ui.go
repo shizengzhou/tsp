@@ -286,15 +286,15 @@ func (m *UI) listWidth() int {
 			widest = w
 		}
 	}
-	w := widest + 4
+	w := widest + 2
 	if w < 24 {
 		w = 24
 	}
 	if limit := m.width / 3; w > limit {
 		w = limit
 	}
-	if m.width-w-2 < 30 {
-		w = m.width - 32
+	if m.width-w < 30 {
+		w = m.width - 30
 	}
 	if w < 14 {
 		w = 14
@@ -303,7 +303,7 @@ func (m *UI) listWidth() int {
 }
 
 func (m *UI) previewWidth() int {
-	w := m.width - m.listWidth() - 2
+	w := m.width - m.listWidth()
 	if w < 8 {
 		w = 8
 	}
@@ -341,7 +341,7 @@ func (m *UI) View() string {
 }
 
 func (m *UI) headerView() string {
-	left := "  " + styleChip.Render(fmt.Sprintf("Themes %d", len(m.themes)))
+	left := styleChip.Render(fmt.Sprintf("Themes %d", len(m.themes)))
 
 	var right string
 	switch {
@@ -349,10 +349,8 @@ func (m *UI) headerView() string {
 		right = fmt.Sprintf("filter %s▌  %d/%d", m.query, len(m.visible()), len(m.themes))
 	case m.query != "":
 		right = fmt.Sprintf("filter %s  %d/%d  esc clear", m.query, len(m.visible()), len(m.themes))
-	default:
-		right = fmt.Sprintf("%d %s themes", len(m.themes), m.kind)
 	}
-	rightStyled := styleMuted.Render(right) + "  "
+	rightStyled := styleMuted.Render(right)
 	if m.width < 54 {
 		rightStyled = ""
 	}
@@ -377,8 +375,7 @@ func (m *UI) bodyView() string {
 			r = right[i]
 		}
 		b.WriteString(padWidth(l, listWidth))
-		b.WriteString("  ")
-		b.WriteString(ansi.Truncate(r, previewWidth-1, ""))
+		b.WriteString(ansi.Truncate(r, previewWidth, ""))
 		b.WriteString("\x1b[0m")
 		if i != height-1 {
 			b.WriteByte('\n')
@@ -411,7 +408,7 @@ func (m *UI) listView(width, height int) []string {
 func (m *UI) previewView(width, height int) []string {
 	theme, ok := m.selectedTheme()
 	if !ok {
-		return fitRows([]string{"", "  " + styleMuted.Render("no matching themes")}, height)
+		return fitRows([]string{"", styleMuted.Render("no matching themes")}, height)
 	}
 	return fitRows(m.themePreview(theme, width, height), height)
 }
@@ -420,7 +417,7 @@ func (m *UI) previewView(width, height int) []string {
 // selected theme's own colors. The block is padded to the pane height so it
 // reads as one solid surface down to the footer.
 func (m *UI) themePreview(theme Theme, width, height int) []string {
-	w := width - 2
+	w := width
 	if w < 10 {
 		w = 10
 	}
@@ -444,40 +441,39 @@ func (m *UI) themePreview(theme Theme, width, height int) []string {
 		lines = append(lines, fillLine(parts, w, base))
 	}
 
-	addStyled(base.Bold(true), "  "+theme.Name)
+	addStyled(base.Bold(true), theme.Name)
 	detail := theme.Detail
 	if detail == "" {
-		detail = shortenPath(theme.Path, m.home, w-2)
+		detail = shortenPath(theme.Path, m.home, w)
 	}
-	addStyled(faint, "  "+detail)
+	addStyled(faint, detail)
 	add("")
 	addParts(
-		faint.Render("  fg ")+base.Background(fg).Render("    "),
+		faint.Render("fg ")+base.Background(fg).Render("    "),
 		base.Render("  "),
 		faint.Render("bg ")+base.Background(bg).Render("    "),
 		base.Render("  "),
 		faint.Render("cursor ")+base.Background(lipgloss.Color(theme.Cursor)).Render("    "),
 	)
 	add("")
-	addStyled(faint, "  normal")
-	addParts(append([]string{base.Render("  ")}, swatchParts(theme.Normal[:], 0, base)...)...)
-	addStyled(faint, "  bright")
-	addParts(append([]string{base.Render("  ")}, swatchParts(theme.Bright[:], 8, base)...)...)
+	addStyled(faint, "normal")
+	addParts(swatchParts(theme.Normal[:], 0, base)...)
+	addStyled(faint, "bright")
+	addParts(swatchParts(theme.Bright[:], 8, base)...)
 	add("")
-	addParts(base.Render("  $ ")+base.Render("tsp themes"), base.Render(" --help"))
+	addParts(base.Render("$ ")+base.Render("tsp themes"), base.Render(" --help"))
 	addParts(
-		base.Render("  "),
 		palette(6).Render("README.md"),
 		base.Render("  "),
 		palette(3).Render("main.go"),
 		base.Render("  "),
 		palette(4).Render("internal/"),
 	)
-	addParts(faint.Render("  # " + theme.Name))
-	addParts(palette(1).Render("  error: file not found"))
+	addParts(faint.Render("# " + theme.Name))
+	addParts(palette(1).Render("error: file not found"))
 	add("")
 	addStyled(faint, strings.Repeat("─", w))
-	addStyled(faint, "  code")
+	addStyled(faint, "code")
 	for _, line := range codePreviewLines(theme, w, base) {
 		lines = append(lines, line)
 	}
@@ -513,7 +509,7 @@ var codeKeywords = map[string]bool{
 func codePreviewLines(theme Theme, width int, base lipgloss.Style) []string {
 	lines := make([]string, 0, len(codeSample))
 	for _, src := range codeSample {
-		parts := []string{base.Render("  ")}
+		var parts []string
 		parts = append(parts, highlightCode(theme, base, src)...)
 		lines = append(lines, fillLine(parts, width, base))
 	}
@@ -634,7 +630,7 @@ func contrastColor(hex string) string {
 }
 
 func (m *UI) footerView() string {
-	hints := "  ↑↓ move   / filter   ⏎ apply & quit   q quit"
+	hints := "  ↑↓ move   / filter   ⏎ apply   q quit"
 	if m.width < 60 {
 		hints = "  ↑↓  /  ⏎  q"
 	}
@@ -667,18 +663,13 @@ func shortenPath(path, home string, width int) string {
 }
 
 func fitRows(lines []string, height int) []string {
-	if len(lines) <= height {
-		for len(lines) < height {
-			lines = append(lines, "")
-		}
-		return lines
+	if len(lines) > height {
+		return lines[:height]
 	}
-	if height <= 1 {
-		return lines[:1]
+	for len(lines) < height {
+		lines = append(lines, "")
 	}
-	visible := append([]string{}, lines[:height-1]...)
-	visible = append(visible, styleFaint.Render("  …"))
-	return visible
+	return lines
 }
 
 func joinPadded(left, right string, width int) string {

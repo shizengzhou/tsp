@@ -162,7 +162,7 @@ func TestFontNameIsLeftAligned(t *testing.T) {
 	pressFontKey(m, tea.KeyDown)
 
 	rows, _ := m.previewView(m.previewWidth(), m.listHeight(), false)
-	if got := ansi.Strip(rows[0]); !strings.HasPrefix(got, " Beta") {
+	if got := ansi.Strip(rows[0]); !strings.HasPrefix(got, "Beta") {
 		t.Errorf("preview name row = %q, want it left-aligned", got)
 	}
 }

@@ -272,15 +272,15 @@ func (m *UI) listWidth() int {
 			widest = width
 		}
 	}
-	width := widest + 4
+	width := widest + 2
 	if width < 24 {
 		width = 24
 	}
 	if limit := m.width / 3; width > limit {
 		width = limit
 	}
-	if m.width-width-2 < 30 {
-		width = m.width - 32
+	if m.width-width < 30 {
+		width = m.width - 30
 	}
 	if width < 14 {
 		width = 14
@@ -289,7 +289,7 @@ func (m *UI) listWidth() int {
 }
 
 func (m *UI) previewWidth() int {
-	width := m.width - m.listWidth() - 2
+	width := m.width - m.listWidth()
 	if width < 8 {
 		width = 8
 	}
@@ -354,7 +354,7 @@ func (m *UI) imageFor(family Family) imageResult {
 }
 
 func (m *UI) headerView() string {
-	left := "  " + styleChip.Render(fmt.Sprintf("All %d", len(m.families)))
+	left := styleChip.Render(fmt.Sprintf("All %d", len(m.families)))
 
 	var right string
 	switch {
@@ -362,10 +362,8 @@ func (m *UI) headerView() string {
 		right = fmt.Sprintf("filter %s▌  %d/%d", m.query, len(m.visible()), len(m.families))
 	case m.query != "":
 		right = fmt.Sprintf("filter %s  %d/%d  esc clear", m.query, len(m.visible()), len(m.families))
-	default:
-		right = fmt.Sprintf("%d families", len(m.families))
 	}
-	rightStyled := styleMuted.Render(right) + "  "
+	rightStyled := styleMuted.Render(right)
 	if m.width < 54 {
 		rightStyled = ""
 	}
@@ -391,7 +389,6 @@ func (m *UI) bodyRows(includeImage bool) ([]string, *imageArea) {
 			// and put the graphics escape at the pane origin on the first row.
 			var b strings.Builder
 			b.WriteString(padWidth(l, listWidth))
-			b.WriteString("  ")
 			if i == area.start {
 				b.WriteString(imageEscapes(m.protocol, &imagePlan{png: area.png, cols: area.cols, rows: area.rows}))
 			}
@@ -404,7 +401,6 @@ func (m *UI) bodyRows(includeImage bool) ([]string, *imageArea) {
 		}
 		var b strings.Builder
 		b.WriteString(padWidth(l, listWidth))
-		b.WriteString("  ")
 		b.WriteString(ansi.Truncate(r, previewWidth, "…"))
 		b.WriteString("\x1b[0m")
 		rows = append(rows, b.String())
@@ -439,13 +435,13 @@ func (m *UI) previewView(width, height int, includeImage bool) ([]string, *image
 	family, ok := m.selectedFamily()
 	if !ok {
 		add("")
-		add("  " + styleMuted.Render("no matching fonts"))
+		add(styleMuted.Render("no matching fonts"))
 		return fitRows(lines, height), nil
 	}
 
-	add(" " + styleAccent.Bold(true).Render(ansi.Truncate(family.Name, width-2, "…")))
-	add(" " + styleMuted.Render("Styles: ") + strings.Join(family.Styles(), ", "))
-	add(" " + styleMuted.Render(m.chooseHint))
+	add(styleAccent.Bold(true).Render(ansi.Truncate(family.Name, width-1, "…")))
+	add(styleMuted.Render("Styles: ") + strings.Join(family.Styles(), ", "))
+	add(styleMuted.Render(m.chooseHint))
 	add("")
 	add(styleFaint.Render(previewRule(width, "preview")))
 
@@ -474,24 +470,24 @@ func (m *UI) previewView(width, height int, includeImage bool) ([]string, *image
 			// text already removes them.
 			lines[0] = imageClearEscapes() + lines[0]
 		}
-		add(" " + ansi.Truncate(sampleText, width-2, "…"))
+		add(ansi.Truncate(sampleText, width-1, "…"))
 	}
 
 	add("")
 	face := family.Primary()
-	add(" " + styleFaint.Render(fmt.Sprintf("PostScript  %s", face.PostScript)))
-	add(" " + styleFaint.Render(fmt.Sprintf("File        %s", shortPath(face.Path, m.home, width-12))))
+	add(styleFaint.Render(fmt.Sprintf("PostScript  %s", face.PostScript)))
+	add(styleFaint.Render(fmt.Sprintf("File        %s", shortPath(face.Path, m.home, width-12))))
 	if face.Index > 0 {
-		add(" " + styleFaint.Render(fmt.Sprintf("Collection  face %d", face.Index)))
+		add(styleFaint.Render(fmt.Sprintf("Collection  face %d", face.Index)))
 	}
-	add(" " + styleFaint.Render(fmt.Sprintf("Faces       %d", len(family.Faces))))
+	add(styleFaint.Render(fmt.Sprintf("Faces       %d", len(family.Faces))))
 	add("")
 	if area != nil {
-		add(" " + styleFaint.Render("preview rendered from the selected font"))
+		add(styleFaint.Render("preview rendered from the selected font"))
 	} else if includeImage {
-		add(" " + styleFaint.Render("preview uses your terminal's current font"))
+		add(styleFaint.Render("preview uses your terminal's current font"))
 	} else {
-		add(" " + styleFaint.Render("cannot preview: kitty/iTerm2 image protocol not supported"))
+		add(styleFaint.Render("cannot preview: kitty/iTerm2 image protocol not supported"))
 	}
 
 	return fitRows(lines, height), area
@@ -535,18 +531,13 @@ func shortPath(path, home string, width int) string {
 }
 
 func fitRows(lines []string, height int) []string {
-	if len(lines) <= height {
-		for len(lines) < height {
-			lines = append(lines, "")
-		}
-		return lines
+	if len(lines) > height {
+		return lines[:height]
 	}
-	if height <= 1 {
-		return lines[:1]
+	for len(lines) < height {
+		lines = append(lines, "")
 	}
-	visible := append([]string{}, lines[:height-1]...)
-	visible = append(visible, styleFaint.Render("  …"))
-	return visible
+	return lines
 }
 
 func joinPadded(left, right string, width int) string {

@@ -65,9 +65,6 @@ func TestUIShowsThemeDetail(t *testing.T) {
 	if strings.Contains(plain, "themes/Demo.toml") {
 		t.Errorf("View() still shows the path although Detail is set:\n%s", plain)
 	}
-	if !strings.Contains(plain, "1 wezterm themes") {
-		t.Errorf("View() does not name the terminal kind:\n%s", plain)
-	}
 }
 
 func TestUIAppliesThemeOnEnter(t *testing.T) {

@@ -81,7 +81,7 @@ Flags:
                  when it already exists, otherwise the XDG config)
 
 Keys:
-  ↑/↓ j/k   move        /   filter       ⏎  apply theme and quit
+  ↑/↓ j/k   move        /   filter       ⏎  apply theme
   q         quit        esc clear filter
 `
 
