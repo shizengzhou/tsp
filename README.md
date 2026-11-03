@@ -11,7 +11,7 @@ A collection of small tools for previewing terminal settings:
 - `tsp omz themes` — oh-my-zsh theme browser with a live prompt preview; `Enter` applies a theme via `omz theme set`
 - `tsp omp themes` — oh-my-posh theme browser with a live prompt preview; `Enter` rewrites the `oh-my-posh init` line of your shell profile
 - `tsp fonts` — installed monospaced font family browser with styles and a glyph sample; `Enter` prints the chosen family name, or saves it to the terminal config when running inside Alacritty, Ghostty or Windows Terminal
-- `tsp themes` — Alacritty, WezTerm, Ghostty and Windows Terminal color theme browser with a live palette and code preview; `Enter` applies the theme through `general.import`, `color_scheme`, `theme` or `colorScheme`
+- `tsp themes` — Alacritty, WezTerm, Ghostty and Windows Terminal color theme browser
 
 ## Requirements
 
@@ -146,7 +146,7 @@ Inside Alacritty it browses the color schemes in the Alacritty config directory 
 
 Keys: `Up`/`Down`, `j`/`k`, `PgUp`/`PgDn`, `g`/`G`, start typing or `/` to filter, `Enter` applies the theme and quits, `Esc` clears the filter, `q` quits.
 
-For scripting, `tsp themes list` prints the available theme names one per line, `tsp themes set NAME` applies one directly without the browser, and `tsp themes rand` spins a one-line roulette that previews each candidate in its own colors and applies a random one (the animation only plays on a terminal); all accept the same `--themes`/`--config` flags and use the terminal tsp runs in.
+For scripting, `tsp themes list` prints the available theme names one per line, `tsp themes set NAME` applies one directly without the browser, and `tsp themes rand` applies a random one; all three accept the same `--themes`/`--config` flags and use the terminal tsp runs in.
 
 #### A different theme for each weekday
 

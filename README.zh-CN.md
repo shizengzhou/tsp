@@ -11,7 +11,7 @@
 - `tsp omz themes` — oh-my-zsh 主题浏览器，右侧实时预览提示符；回车通过 `omz theme set` 应用主题
 - `tsp omp themes` — oh-my-posh 主题浏览器，右侧实时预览提示符；回车改写 shell profile 中的 `oh-my-posh init` 行
 - `tsp fonts` — 已安装等宽字体家族浏览器，右侧显示样式与字形示例；回车把所选家族名输出到 stdout，在 Alacritty、Ghostty 或 Windows Terminal 内则保存到终端配置
-- `tsp themes` — Alacritty、WezTerm、Ghostty 与 Windows Terminal 配色主题浏览器，右侧预览调色板与代码；回车通过 `general.import`、`color_scheme`、`theme` 或 `colorScheme` 应用主题
+- `tsp themes` — Alacritty、WezTerm、Ghostty 与 Windows Terminal 配色主题浏览器
 
 ## 环境要求
 
@@ -128,7 +128,7 @@ tsp themes
 
 按键：`↑`/`↓`、`j`/`k`、`PgUp`/`PgDn`、`g`/`G`，直接输入或 `/` 过滤，`Enter` 应用主题并退出，`Esc` 清空过滤，`q` 退出。
 
-脚本场景可用 `tsp themes list` 逐行输出可用主题名，`tsp themes set NAME` 不打开浏览器直接应用，`tsp themes rand` 会用一行小转盘按各主题自身配色轮播候选并随机应用一个（仅在终端中播放动画）；三者都支持同样的 `--themes`/`--config` 参数，并作用于 tsp 当前运行的终端。
+脚本场景可用 `tsp themes list` 逐行输出可用主题名，`tsp themes set NAME` 不打开浏览器直接应用，`tsp themes rand` 会随机应用一个；三者都支持同样的 `--themes`/`--config` 参数，并作用于 tsp 当前运行的终端。
 
 #### 每个工作日换一个主题
 
