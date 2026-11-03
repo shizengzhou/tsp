@@ -4,7 +4,7 @@ English | [简体中文](README.zh-CN.md)
 
 [![Release](https://github.com/shizengzhou/tsp/actions/workflows/release.yml/badge.svg)](https://github.com/shizengzhou/tsp/actions/workflows/release.yml)
 
-[![tsp demo](tsp.jpg)](https://youtu.be/tB8dpq3Hw1c)
+https://github.com/user-attachments/assets/4e5bc431-2dde-416f-a023-3b8f04fb1850
 
 A collection of small tools for previewing terminal settings:
 
