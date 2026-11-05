@@ -33,7 +33,11 @@ func Run(opts Options) error {
 	}
 
 	apply := func(theme themebrowser.Theme) error { return SetTheme(theme.Name, configPath) }
-	uiOpts := themebrowser.Options{Kind: "wezterm", Reload: "wezterm reloads automatically"}
+	uiOpts := themebrowser.Options{
+		Kind:    "wezterm",
+		Reload:  "wezterm reloads automatically",
+		Current: CurrentScheme(configPath),
+	}
 	return themebrowser.Run(themes, uiOpts, apply)
 }
 

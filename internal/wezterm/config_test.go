@@ -235,3 +235,39 @@ func TestRunningInWezTerm(t *testing.T) {
 		})
 	}
 }
+
+func TestSchemeInConfig(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{"config builder", "local config = wezterm.config_builder()\nconfig.color_scheme = \"Catppuccin Mocha\"\nreturn config\n", "Catppuccin Mocha"},
+		{"table", "return {\n  color_scheme = \"One Half Dark\",\n}\n", "One Half Dark"},
+		{"single quotes", "color_scheme = 'Solarized Dark'\n", "Solarized Dark"},
+		{"commented", "-- config.color_scheme = \"Old\"\n", ""},
+		{"other key", "my_color_scheme = \"Old\"\n", ""},
+		{"no assignment", "return config\n", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := schemeInConfig(tc.raw); got != tc.want {
+				t.Errorf("schemeInConfig() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCurrentSchemeReadsConfigFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "wezterm.lua")
+	if err := os.WriteFile(path, []byte("config.color_scheme = \"Demo\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := CurrentScheme(path); got != "Demo" {
+		t.Errorf("CurrentScheme() = %q, want Demo", got)
+	}
+	if got := CurrentScheme(filepath.Join(dir, "missing.lua")); got != "" {
+		t.Errorf("CurrentScheme(missing) = %q, want empty", got)
+	}
+}

@@ -128,3 +128,43 @@ func TestUIFilter(t *testing.T) {
 		t.Errorf("selected = %+v, want Other", theme)
 	}
 }
+
+func TestUIMarksCurrentTheme(t *testing.T) {
+	configured := testTheme()
+	configured.Name = "Current"
+	other := testTheme()
+	other.Name = "Other"
+
+	m := NewUI([]Theme{configured, other}, Options{
+		Kind:    "wezterm",
+		Reload:  "wezterm reloads automatically",
+		Current: "Other",
+	}, func(Theme) error { return nil })
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
+
+	marked := false
+	for _, row := range strings.Split(ansi.Strip(m.View()), "\n") {
+		if !strings.Contains(row, "Other") {
+			continue
+		}
+		// The check sits in the last cell of the list column.
+		cells := []rune(row)
+		if len(cells) > m.listWidth() {
+			cells = cells[:m.listWidth()]
+		}
+		list := strings.TrimRight(string(cells), " ")
+		if !strings.HasSuffix(list, "✓") {
+			t.Errorf("check is not right-aligned: %q", list)
+		}
+		marked = true
+	}
+	if !marked {
+		t.Errorf("the configured theme is not marked:\n%s", ansi.Strip(m.View()))
+	}
+
+	for _, row := range strings.Split(ansi.Strip(m.View()), "\n") {
+		if strings.Contains(row, "Current") && strings.Contains(row, "✓") {
+			t.Errorf("row marks the wrong theme: %q", row)
+		}
+	}
+}

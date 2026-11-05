@@ -33,7 +33,11 @@ func Run(opts Options) error {
 	}
 
 	apply := func(theme themebrowser.Theme) error { return SetTheme(theme.Name, configPath) }
-	return themebrowser.Run(themes, themebrowser.Options{Kind: "ghostty", Reload: "saved to the config"}, apply)
+	return themebrowser.Run(themes, themebrowser.Options{
+		Kind:    "ghostty",
+		Reload:  "saved to the config",
+		Current: CurrentTheme(configPath),
+	}, apply)
 }
 
 // List returns the names of the Ghostty themes.

@@ -33,7 +33,11 @@ func Run(opts Options) error {
 	}
 
 	apply := func(theme Theme) error { return SetTheme(theme, configPath, themeDir) }
-	uiOpts := themebrowser.Options{Kind: "alacritty", Reload: "alacritty reloads automatically"}
+	uiOpts := themebrowser.Options{
+		Kind:    "alacritty",
+		Reload:  "alacritty reloads automatically",
+		Current: CurrentTheme(configPath, themeDir),
+	}
 	return themebrowser.Run(themes, uiOpts, apply)
 }
 

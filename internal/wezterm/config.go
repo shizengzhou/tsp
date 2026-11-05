@@ -122,13 +122,23 @@ func ApplyColorScheme(raw, name string) (string, error) {
 
 // replaceColorScheme rewrites the string value of a color_scheme assignment.
 func replaceColorScheme(line, quoted string) (string, bool) {
-	if strings.HasPrefix(strings.TrimSpace(line), "--") {
+	start, end, _, ok := colorSchemeLiteral(line)
+	if !ok {
 		return line, false
+	}
+	return line[:start] + quoted + line[end+1:], true
+}
+
+// colorSchemeLiteral locates the quoted value of a color_scheme assignment and
+// returns the positions of its opening and closing quotes.
+func colorSchemeLiteral(line string) (start, end int, quote byte, ok bool) {
+	if strings.HasPrefix(strings.TrimSpace(line), "--") {
+		return 0, 0, 0, false
 	}
 	for from := 0; from < len(line); {
 		idx := strings.Index(line[from:], "color_scheme")
 		if idx < 0 {
-			return line, false
+			return 0, 0, 0, false
 		}
 		idx += from
 		after := idx + len("color_scheme")
@@ -153,26 +163,43 @@ func replaceColorScheme(line, quoted string) (string, bool) {
 			k++
 		}
 		if k >= len(line) || (line[k] != '"' && line[k] != '\'') {
-			return line, false
+			return 0, 0, 0, false
 		}
-		quote := line[k]
-		end := -1
+		quote = line[k]
 		for m := k + 1; m < len(line); m++ {
 			if quote == '"' && line[m] == '\\' {
 				m++
 				continue
 			}
 			if line[m] == quote {
-				end = m
-				break
+				return k, m, quote, true
 			}
 		}
-		if end < 0 {
-			return line, false
-		}
-		return line[:k] + quoted + line[end+1:], true
+		return 0, 0, 0, false
 	}
-	return line, false
+	return 0, 0, 0, false
+}
+
+// CurrentScheme returns the color scheme assigned in configPath, or "" when the
+// config does not set one. The config is only read, never written.
+func CurrentScheme(configPath string) string {
+	raw, err := os.ReadFile(configPath)
+	if err != nil {
+		return ""
+	}
+	return schemeInConfig(string(raw))
+}
+
+// schemeInConfig returns the first color_scheme assignment, the one
+// ApplyColorScheme would rewrite.
+func schemeInConfig(raw string) string {
+	for _, line := range strings.Split(raw, "\n") {
+		start, end, _, ok := colorSchemeLiteral(line)
+		if ok {
+			return line[start+1 : end]
+		}
+	}
+	return ""
 }
 
 var returnVariable = regexp.MustCompile(`^return\s+([A-Za-z_][A-Za-z0-9_]*)$`)

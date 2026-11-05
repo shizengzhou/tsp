@@ -40,7 +40,38 @@ func Run(opts Options) error {
 		_, err := SetScheme(theme.Name, path)
 		return err
 	}
-	return themebrowser.Run(themes, themebrowser.Options{Kind: "Windows Terminal", Reload: "Windows Terminal reloads settings.json automatically"}, apply)
+	return themebrowser.Run(themes, themebrowser.Options{
+		Kind:    "Windows Terminal",
+		Reload:  "Windows Terminal reloads settings.json automatically",
+		Current: CurrentScheme(path),
+	}, apply)
+}
+
+// CurrentScheme returns the default color scheme set in settingsPath, or "" when
+// settings.json does not set one. The file is only read, never written.
+func CurrentScheme(settingsPath string) string {
+	raw, err := os.ReadFile(settingsPath)
+	if err != nil {
+		return ""
+	}
+	return schemeInSettings(string(raw))
+}
+
+// schemeInSettings reads profiles.defaults.colorScheme, the value ApplyScheme
+// writes.
+func schemeInSettings(raw string) string {
+	raw = strings.TrimPrefix(raw, "\ufeff")
+	var settings struct {
+		Profiles struct {
+			Defaults struct {
+				ColorScheme string `json:"colorScheme"`
+			} `json:"defaults"`
+		} `json:"profiles"`
+	}
+	if err := json.Unmarshal([]byte(stripJSONC(raw)), &settings); err != nil {
+		return ""
+	}
+	return settings.Profiles.Defaults.ColorScheme
 }
 
 // SetByName applies the named scheme and returns the settings path it was

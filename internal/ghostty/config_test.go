@@ -203,3 +203,38 @@ func TestRunningInGhostty(t *testing.T) {
 		})
 	}
 }
+
+func TestThemeInConfig(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{"plain", "theme = Rose Pine\n", "Rose Pine"},
+		{"quoted", "theme = 'Rose Pine'\n", "Rose Pine"},
+		{"commented", "# theme = Old\n", ""},
+		{"last line wins", "theme = A\ntheme = B\n", "B"},
+		{"other keys", "background = #000000\n", ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := themeInConfig(tc.raw); got != tc.want {
+				t.Errorf("themeInConfig() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCurrentThemeReadsConfigFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config")
+	if err := os.WriteFile(path, []byte("theme = Demo\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := CurrentTheme(path); got != "Demo" {
+		t.Errorf("CurrentTheme() = %q, want Demo", got)
+	}
+	if got := CurrentTheme(filepath.Join(dir, "missing")); got != "" {
+		t.Errorf("CurrentTheme(missing) = %q, want empty", got)
+	}
+}

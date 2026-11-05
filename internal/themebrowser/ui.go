@@ -44,6 +44,9 @@ type Options struct {
 	Kind string
 	// Reload tells the user how the terminal picks up the applied theme.
 	Reload string
+	// Current is the theme the terminal config already uses; the list marks it
+	// with a check. Empty when the config does not set one.
+	Current string
 }
 
 // UI is the interactive color theme browser.
@@ -53,6 +56,8 @@ type UI struct {
 	reload string
 	apply  func(Theme) error
 	home   string
+	// current is the theme marked with a check in the list, if any.
+	current string
 
 	width, height int
 	ready         bool
@@ -72,11 +77,12 @@ type UI struct {
 func NewUI(themes []Theme, opts Options, apply func(Theme) error) *UI {
 	home, _ := os.UserHomeDir()
 	return &UI{
-		themes: themes,
-		kind:   opts.Kind,
-		reload: opts.Reload,
-		apply:  apply,
-		home:   home,
+		themes:  themes,
+		kind:    opts.Kind,
+		reload:  opts.Reload,
+		apply:   apply,
+		home:    home,
+		current: opts.Current,
 	}
 }
 
@@ -287,6 +293,10 @@ func (m *UI) listWidth() int {
 		}
 	}
 	w := widest + 2
+	if m.current != "" {
+		// Leave room for the " ✓" marker after the configured theme.
+		w += 2
+	}
 	if w < 24 {
 		w = 24
 	}
@@ -390,13 +400,26 @@ func (m *UI) listView(width, height int) []string {
 
 	for i := m.offset; i < m.offset+height && i < len(idxs); i++ {
 		theme := m.themes[idxs[i]]
-		name := ansi.Truncate(theme.Name, width-2, "…")
-		if i == m.cursor {
-			rows = append(rows, styleSelectedBar.Render("▌ ")+
-				styleSelectedName.Width(width-2).Render(name))
-			continue
+		marked := theme.Name == m.current
+		nameLimit := width - 2
+		if marked {
+			// Leave the last cell free for the check.
+			nameLimit = width - 4
 		}
-		rows = append(rows, styleMuted.Render("  "+name))
+		name := ansi.Truncate(theme.Name, nameLimit, "…")
+
+		var row string
+		if i == m.cursor {
+			row = styleSelectedBar.Render("▌ ") + styleSelectedName.Width(nameLimit).Render(name)
+		} else {
+			row = styleMuted.Render("  " + name)
+		}
+		if marked {
+			row = padWidth(row, width-1) + styleOK.Render("✓")
+		} else {
+			row = padWidth(row, width)
+		}
+		rows = append(rows, row)
 	}
 
 	for len(rows) < height {

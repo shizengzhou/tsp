@@ -138,6 +138,33 @@ func ApplyTheme(raw, name string) string {
 	return base + "theme = " + name + "\n"
 }
 
+// CurrentTheme returns the theme set in the config's last theme line, or ""
+// when the config does not set one. The config is only read, never written.
+func CurrentTheme(configPath string) string {
+	raw, err := os.ReadFile(configPath)
+	if err != nil {
+		return ""
+	}
+	return themeInConfig(string(raw))
+}
+
+// themeInConfig picks the last uncommented theme line, the one Ghostty
+// applies.
+func themeInConfig(raw string) string {
+	name := ""
+	for _, line := range strings.Split(raw, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		key, value, ok := splitKeyValue(trimmed)
+		if ok && strings.ToLower(key) == "theme" {
+			name = value
+		}
+	}
+	return name
+}
+
 func commentLine(line string) string {
 	trimmed := strings.TrimLeft(line, " \t")
 	indent := line[:len(line)-len(trimmed)]

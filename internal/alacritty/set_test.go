@@ -145,3 +145,79 @@ func TestSetThemeCreatesMissingConfig(t *testing.T) {
 		t.Error("backup should not be created for a new config")
 	}
 }
+
+func TestThemeInConfig(t *testing.T) {
+	cases := []struct {
+		name      string
+		raw       string
+		themeDir  string
+		configDir string
+		want      string
+	}{
+		{
+			name:      "absolute import",
+			raw:       "[general]\nimport = ['/cfg/themes/Demo.toml']\n",
+			themeDir:  "/cfg/themes",
+			configDir: "/cfg",
+			want:      "Demo",
+		},
+		{
+			name:      "relative import",
+			raw:       "[general]\nimport = ['themes/Demo.toml']\n",
+			themeDir:  "/cfg/themes",
+			configDir: "/cfg",
+			want:      "Demo",
+		},
+		{
+			name:      "last theme import wins",
+			raw:       "[general]\nimport = ['/cfg/themes/Old.toml', '/cfg/themes/New.toml']\n",
+			themeDir:  "/cfg/themes",
+			configDir: "/cfg",
+			want:      "New",
+		},
+		{
+			name:      "unrelated import",
+			raw:       "[general]\nimport = ['/elsewhere/base.toml']\n",
+			themeDir:  "/cfg/themes",
+			configDir: "/cfg",
+			want:      "",
+		},
+		{
+			name:      "commented import",
+			raw:       "[general]\n# import = ['/cfg/themes/Demo.toml']\n",
+			themeDir:  "/cfg/themes",
+			configDir: "/cfg",
+			want:      "",
+		},
+		{
+			name:      "no general table",
+			raw:       "[font]\nsize = 12\n",
+			themeDir:  "/cfg/themes",
+			configDir: "/cfg",
+			want:      "",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := themeInConfig(tc.raw, tc.themeDir, tc.configDir); got != tc.want {
+				t.Errorf("themeInConfig() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCurrentThemeReadsConfigFile(t *testing.T) {
+	dir := t.TempDir()
+	themeDir := filepath.Join(dir, "themes")
+	configPath := filepath.Join(dir, "alacritty.toml")
+	raw := "[general]\nimport = ['" + filepath.Join(themeDir, "Demo.toml") + "']\n"
+	if err := os.WriteFile(configPath, []byte(raw), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := CurrentTheme(configPath, themeDir); got != "Demo" {
+		t.Errorf("CurrentTheme() = %q, want Demo", got)
+	}
+	if got := CurrentTheme(filepath.Join(dir, "missing.toml"), themeDir); got != "" {
+		t.Errorf("CurrentTheme(missing) = %q, want empty", got)
+	}
+}

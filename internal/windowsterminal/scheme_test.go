@@ -178,3 +178,37 @@ func TestSetByNameWritesSchemeAndBackup(t *testing.T) {
 		t.Fatal("SetByName() error = nil for an unknown scheme")
 	}
 }
+
+func TestSchemeInSettings(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{"defaults", `{"profiles":{"defaults":{"colorScheme":"One Half Dark"}}}`, "One Half Dark"},
+		{"jsonc", "{\n  // comment\n  \"profiles\": {\"defaults\": {\"colorScheme\": \"Campbell\",}},\n}", "Campbell"},
+		{"missing", `{"profiles":{"defaults":{}}}`, ""},
+		{"invalid", `not json`, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := schemeInSettings(tc.raw); got != tc.want {
+				t.Errorf("schemeInSettings() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCurrentSchemeReadsSettingsFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.json")
+	if err := os.WriteFile(path, []byte("\ufeff{\"profiles\":{\"defaults\":{\"colorScheme\":\"Demo\"}}}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := CurrentScheme(path); got != "Demo" {
+		t.Errorf("CurrentScheme() = %q, want Demo", got)
+	}
+	if got := CurrentScheme(filepath.Join(dir, "missing.json")); got != "" {
+		t.Errorf("CurrentScheme(missing) = %q, want empty", got)
+	}
+}

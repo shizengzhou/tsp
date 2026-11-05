@@ -201,6 +201,55 @@ func arrayEnd(lines []string, start, limit int) int {
 // parseImportValues extracts the quoted paths of an import statement and drops
 // entries that point into themeDir.
 func parseImportValues(statement, themeDir, configDir string) []string {
+	values := importValues(statement)
+	kept := values[:0]
+	for _, value := range values {
+		if !inThemeDir(value, themeDir, configDir) {
+			kept = append(kept, value)
+		}
+	}
+	return kept
+}
+
+// CurrentTheme returns the theme the config imports from themeDir, or "" when
+// no theme is imported. The config is only read, never written.
+func CurrentTheme(configPath, themeDir string) string {
+	raw, err := os.ReadFile(configPath)
+	if err != nil {
+		return ""
+	}
+	return themeInConfig(string(raw), themeDir, filepath.Dir(configPath))
+}
+
+// themeInConfig picks the last import that points into themeDir, matching
+// alacritty's load order.
+func themeInConfig(raw, themeDir, configDir string) string {
+	lines := strings.Split(raw, "\n")
+	header, end, ok := findTable(lines, "general")
+	if !ok {
+		return ""
+	}
+	start, stop, ok := findImport(lines, header+1, end)
+	if !ok {
+		return ""
+	}
+
+	name := ""
+	for _, value := range importValues(strings.Join(lines[start:stop+1], "\n")) {
+		path := expandHome(value)
+		if !filepath.IsAbs(path) {
+			path = filepath.Join(configDir, path)
+		}
+		path = filepath.Clean(path)
+		if inThemeDir(path, themeDir, configDir) {
+			name = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+		}
+	}
+	return name
+}
+
+// importValues extracts the quoted paths of an import statement.
+func importValues(statement string) []string {
 	values := make([]string, 0, 4)
 	for i := 0; i < len(statement); i++ {
 		switch statement[i] {
@@ -228,14 +277,7 @@ func parseImportValues(statement, themeDir, configDir string) []string {
 			i = j
 		}
 	}
-
-	kept := values[:0]
-	for _, value := range values {
-		if !inThemeDir(value, themeDir, configDir) {
-			kept = append(kept, value)
-		}
-	}
-	return kept
+	return values
 }
 
 func inThemeDir(value, themeDir, configDir string) bool {
