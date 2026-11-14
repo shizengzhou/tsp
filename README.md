@@ -24,15 +24,15 @@ A collection of small tools for previewing terminal settings:
 
 | Terminal | Font preview | Font saved on `Enter` | Color theme browser |
 | --- | --- | --- | --- |
-| Alacritty | Text sample (no graphics protocol) | Yes, to `alacritty.toml` | Yes |
-| Ghostty | Image (Kitty graphics) | Yes, to its config | Yes |
-| Windows Terminal | Text sample (no graphics protocol) | Yes, to `settings.json` | Yes |
+| Alacritty | Text sample (no graphics protocol) | Yes | Yes |
+| Ghostty | Image (Kitty graphics) | Yes | Yes |
+| Windows Terminal | Text sample (no graphics protocol) | Yes | Yes |
 | WezTerm | Image (Kitty graphics) | No, the family name is printed | Yes |
 | Kitty | Image (Kitty graphics) | No | No; refuses to run |
 | iTerm2 | Image (iTerm2 inline image) | No | No; refuses to run |
 | VS Code with `terminal.integrated.enableImages` | Image (iTerm2 inline image) | No | No |
-| Otty (Windows, libghostty-based) | Image (Kitty graphics, forwarded through ConPTY) | No | No |
-| Gui (gui-cli, Windows, libghostty-based) | Image (Kitty graphics, forwarded through ConPTY) | Yes, to its config | Yes |
+| Otty | Image (Kitty graphics, forwarded through ConPTY) | No | No |
+| Gui | Image (Kitty graphics, forwarded through ConPTY) | Yes | Yes |
 | tmux | Text sample | No | No |
 | Anything else (Terminal.app, Konsole, GNOME Terminal, …) | Text sample | No | No |
 
