@@ -10,6 +10,7 @@ import (
 	"github.com/shizengzhou/tsp/internal/alacritty"
 	"github.com/shizengzhou/tsp/internal/fonts"
 	"github.com/shizengzhou/tsp/internal/ghostty"
+	"github.com/shizengzhou/tsp/internal/gui"
 	"github.com/shizengzhou/tsp/internal/omp"
 	"github.com/shizengzhou/tsp/internal/omz"
 	"github.com/shizengzhou/tsp/internal/themebrowser"
@@ -21,7 +22,7 @@ import (
 const usage = `tsp is a collection of small terminal tools.
 
 Usage:
-  tsp themes [flags]        browse and apply alacritty, wezterm or ghostty color themes
+  tsp themes [flags]        browse and apply alacritty, wezterm, ghostty, Gui or Windows Terminal color themes
   tsp themes list           print the available theme names
   tsp themes set NAME       apply a theme directly
   tsp themes rand           apply a random theme
@@ -54,10 +55,10 @@ const themesUsage = `Usage:
   tsp themes set [flags] NAME        apply NAME directly
   tsp themes rand [flags]            apply a random theme
 
-Browse alacritty, wezterm, ghostty or Windows Terminal color themes: the list is
-on the left, a live palette and a sample of terminal output on the right. It
-must be run inside one of those terminals, since the selected colors are only
-visible there; otherwise it exits with an error.
+Browse alacritty, wezterm, ghostty, Gui or Windows Terminal color themes: the
+list is on the left, a live palette and a sample of terminal output on the
+right. It must be run inside one of those terminals, since the selected colors
+are only visible there; otherwise it exits with an error.
 
 Inside alacritty, when the themes directory does not exist yet, the alacritty
 themes from mbadolato/iTerm2-Color-Schemes are downloaded into it first.
@@ -75,6 +76,13 @@ Enter writes theme = Name to the Ghostty config and comments out background,
 foreground, palette and cursor colors that would override it (a .bck backup of
 the config is kept).
 
+Inside Gui, the themes bundled under Assets/Themes and the ones in
+%APPDATA%\gui\themes are listed. The top shows All, Light and Dark tabs (Tab,
+left/right or 1/2/3), and each row also shows its variant at the right edge.
+Gui uses the Ghostty config format and keeps a light and a dark theme apart, so
+Enter replaces only the matching half of the theme = light:...,dark:... line in
+%APPDATA%\gui\config (a .bck backup of the config is kept).
+
 Inside Windows Terminal, the schemes defined in settings.json are listed (the
 schemes built into the app are not in that file, so add them in Windows
 Terminal first). Enter sets profiles.defaults.colorScheme (a .bck backup of
@@ -83,11 +91,12 @@ settings.json is kept; Windows Terminal reloads it automatically).
 Flags:
   --themes DIR   alacritty theme directory (default <alacritty config dir>/themes)
   --config FILE  terminal config to edit (default alacritty.toml, wezterm.lua,
-                 the Ghostty config, or the Windows Terminal settings.json)
+                 the Ghostty config, the Gui config, or the Windows Terminal
+                 settings.json)
 
 Keys:
   ↑/↓ j/k   move        /   filter       ⏎  apply theme
-  q         quit        esc clear filter
+  tab ←/→   switch All/Light/Dark (Gui)   q quit   esc clear filter
 `
 
 const themesListUsage = `Usage:
@@ -111,7 +120,7 @@ kept.
 Flags:
   --themes DIR   alacritty theme directory (default <alacritty config dir>/themes)
   --config FILE  terminal config to edit (default alacritty.toml, wezterm.lua,
-                 or the Ghostty config)
+                 the Ghostty config, or the Gui config)
 `
 
 const themesRandUsage = `Usage:
@@ -125,7 +134,7 @@ kept.
 Flags:
   --themes DIR   alacritty theme directory (default <alacritty config dir>/themes)
   --config FILE  terminal config to edit (default alacritty.toml, wezterm.lua,
-                 or the Ghostty config)
+                 the Ghostty config, or the Gui config)
 `
 
 const omzUsage = `Usage:
@@ -165,10 +174,11 @@ const fontsUsage = `Usage:
 
 Browse installed monospaced font families: the family list is on the left,
 styles and a glyph sample on the right. Enter prints the chosen family name to
-stdout. When tsp runs inside alacritty, ghostty or Windows Terminal, Enter
+stdout. When tsp runs inside alacritty, ghostty, Gui or Windows Terminal, Enter
 instead saves the family to the terminal config (alacritty.toml, the Ghostty
-config, or profiles.defaults.font.face in Windows Terminal's settings.json);
-a .bck backup of the config is kept, and the terminals reload it automatically.
+config, %APPDATA%\gui\config, or profiles.defaults.font.face in Windows
+Terminal's settings.json); a .bck backup of the config is kept, and the
+terminals reload it automatically.
 
 Keys:
   ↑/↓ j/k   move        /   filter       ⏎  choose
@@ -227,9 +237,21 @@ func runFonts(args []string) error {
 		}
 	}
 
-	// Inside alacritty, ghostty and Windows Terminal the choice can be saved to
-	// the terminal config; everywhere else the family name is printed so it
+	// Inside alacritty, ghostty, Gui and Windows Terminal the choice can be saved
+	// to the terminal config; everywhere else the family name is printed so it
 	// stays scriptable.
+	if gui.RunningInGui() {
+		configPath, err := gui.ConfigFile()
+		if err != nil {
+			return err
+		}
+		return fonts.RunFonts(fonts.Options{
+			ChooseHint: "Press Enter to save this font to Gui",
+			Apply: func(choice fonts.Choice) (string, error) {
+				return gui.SetFonts(ghosttyFonts(choice), configPath)
+			},
+		})
+	}
 	if alacritty.RunningInAlacritty() {
 		configPath, err := alacritty.ConfigFile()
 		if err != nil {
@@ -334,6 +356,8 @@ func runThemes(args []string) error {
 // themesTerminal names the terminal tsp is running in.
 func themesTerminal() (string, error) {
 	switch {
+	case gui.RunningInGui():
+		return "gui", nil
 	case alacritty.RunningInAlacritty():
 		return "alacritty", nil
 	case wezterm.RunningInWezTerm():
@@ -343,7 +367,7 @@ func themesTerminal() (string, error) {
 	case windowsterminal.RunningInWindowsTerminal():
 		return "windowsterminal", nil
 	}
-	return "", fmt.Errorf("tsp themes currently supports alacritty, wezterm, ghostty and Windows Terminal; run it inside one of them (TERM=%q, TERM_PROGRAM=%q)",
+	return "", fmt.Errorf("tsp themes currently supports alacritty, wezterm, ghostty, Gui and Windows Terminal; run it inside one of them (TERM=%q, TERM_PROGRAM=%q)",
 		os.Getenv("TERM"), os.Getenv("TERM_PROGRAM"))
 }
 
@@ -378,6 +402,11 @@ func runThemeBrowser(args []string) error {
 			return fmt.Errorf("--themes is only used by alacritty; Windows Terminal reads schemes from settings.json")
 		}
 		return windowsterminal.Run(windowsterminal.Options{ConfigFile: opts.ConfigFile})
+	case "gui":
+		if opts.ThemeDir != "" {
+			return fmt.Errorf("--themes is only used by alacritty; Gui reads its theme directories")
+		}
+		return gui.Run(gui.Options{ConfigFile: opts.ConfigFile})
 	default:
 		if opts.ThemeDir != "" {
 			return fmt.Errorf("--themes is only used by alacritty; ghostty reads its theme directories")
@@ -496,6 +525,11 @@ func themeList(terminal string, opts alacritty.Options) ([]themebrowser.Theme, e
 			return nil, err
 		}
 		return windowsterminal.Schemes(path)
+	case "gui":
+		if opts.ThemeDir != "" {
+			return nil, fmt.Errorf("--themes is only used by alacritty; Gui reads its theme directories")
+		}
+		return gui.Discover()
 	default:
 		if opts.ThemeDir != "" {
 			return nil, fmt.Errorf("--themes is only used by alacritty; ghostty reads its theme directories")
@@ -520,6 +554,11 @@ func applyTheme(terminal, name string, opts alacritty.Options) (string, error) {
 			return "", fmt.Errorf("--themes is only used by alacritty; Windows Terminal reads schemes from settings.json")
 		}
 		return windowsterminal.SetByName(name, opts.ConfigFile)
+	case "gui":
+		if opts.ThemeDir != "" {
+			return "", fmt.Errorf("--themes is only used by alacritty; Gui reads its theme directories")
+		}
+		return gui.SetByName(name, opts.ConfigFile)
 	default:
 		if opts.ThemeDir != "" {
 			return "", fmt.Errorf("--themes is only used by alacritty; ghostty reads its theme directories")

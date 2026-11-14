@@ -67,6 +67,74 @@ func TestUIShowsThemeDetail(t *testing.T) {
 	}
 }
 
+func TestUIShowsThemeVariant(t *testing.T) {
+	dark := testTheme()
+	dark.Variant = "dark"
+	light := testTheme()
+	light.Name = "Demo Light"
+	light.Variant = "light"
+	m := NewUI([]Theme{dark, light}, Options{Kind: "Gui", Reload: "saved to the config"}, func(Theme) error { return nil })
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
+
+	rows := strings.Split(ansi.Strip(m.View()), "\n")
+	// The list and the preview share a row: the first body row shows the
+	// selected theme's badge on the left, and the next one the preview detail
+	// plus the badge of the second list row.
+	if !strings.Contains(rows[1], "dark") {
+		t.Errorf("first row = %q, want the dark badge", rows[1])
+	}
+	if !strings.Contains(rows[2], "dark theme") || !strings.Contains(rows[2], "light") {
+		t.Errorf("second row = %q, want the preview detail and the light badge", rows[2])
+	}
+
+	m.query = "light"
+	if got := len(m.visible()); got != 1 || m.themes[m.visible()[0]].Name != "Demo Light" {
+		t.Errorf("filter \"light\" matched %d themes, want only Demo Light", got)
+	}
+}
+
+func TestUIVariantTabs(t *testing.T) {
+	dark := testTheme()
+	dark.Variant = "dark"
+	light := testTheme()
+	light.Name = "Demo Light"
+	light.Variant = "light"
+	m := NewUI([]Theme{dark, light}, Options{Kind: "Gui", Reload: "saved to the config"}, func(Theme) error { return nil })
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
+
+	header := ansi.Strip(strings.Split(m.View(), "\n")[0])
+	for _, want := range []string{"All 2", "Light 1", "Dark 1"} {
+		if !strings.Contains(header, want) {
+			t.Errorf("header = %q, want the tab %q", header, want)
+		}
+	}
+
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("2")})
+	if got := m.visible(); len(got) != 1 || m.themes[got[0]].Name != "Demo Light" {
+		t.Fatalf("light tab shows %d themes, want only Demo Light", len(got))
+	}
+
+	m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	if got := m.visible(); len(got) != 1 || m.themes[got[0]].Variant != "dark" {
+		t.Fatalf("tab key did not advance to the dark tab")
+	}
+
+	m.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	if got := m.visible(); len(got) != 1 || m.themes[got[0]].Variant != "light" {
+		t.Fatalf("left key did not go back to the light tab")
+	}
+}
+
+func TestDigitsFilterWithoutVariants(t *testing.T) {
+	m := NewUI([]Theme{testTheme()}, Options{Kind: "alacritty", Reload: "reloads"}, func(Theme) error { return nil })
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
+
+	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("1")})
+	if !m.searching || m.query != "1" {
+		t.Fatalf("typing 1 did not start a filter: searching=%v query=%q", m.searching, m.query)
+	}
+}
+
 func TestUIAppliesThemeOnEnter(t *testing.T) {
 	var applied []string
 	m := NewUI([]Theme{testTheme()}, Options{Kind: "alacritty", Reload: "alacritty reloads automatically"}, func(theme Theme) error {

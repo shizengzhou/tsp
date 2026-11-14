@@ -31,6 +31,18 @@ var (
 				Foreground(lipgloss.Color("#ffffff")).
 				Background(lipgloss.Color("#232838")).
 				Bold(true)
+	styleSelectedFaint = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#a6adc8")).
+				Background(lipgloss.Color("#232838"))
+
+	styleTabActive = lipgloss.NewStyle().
+			Background(lipgloss.Color("#7aa2f7")).
+			Foreground(lipgloss.Color("#101014")).
+			Bold(true).
+			Padding(0, 1)
+	styleTabInactive = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#7982a0")).
+				Padding(0, 1)
 )
 
 type appliedMsg struct {
@@ -62,6 +74,11 @@ type UI struct {
 	width, height int
 	ready         bool
 
+	// variantTab is the selected tab: 0 all, 1 light, 2 dark. It only has an
+	// effect when hasVariants is set.
+	variantTab  int
+	hasVariants bool
+
 	query     string
 	searching bool
 	cursor    int
@@ -76,13 +93,21 @@ type UI struct {
 // the user presses Enter.
 func NewUI(themes []Theme, opts Options, apply func(Theme) error) *UI {
 	home, _ := os.UserHomeDir()
+	hasVariants := false
+	for _, theme := range themes {
+		if theme.Variant != "" {
+			hasVariants = true
+			break
+		}
+	}
 	return &UI{
-		themes:  themes,
-		kind:    opts.Kind,
-		reload:  opts.Reload,
-		apply:   apply,
-		home:    home,
-		current: opts.Current,
+		themes:      themes,
+		kind:        opts.Kind,
+		reload:      opts.Reload,
+		apply:       apply,
+		home:        home,
+		current:     opts.Current,
+		hasVariants: hasVariants,
 	}
 }
 
@@ -137,6 +162,18 @@ func (m *UI) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "end", "G":
 		m.cursor = len(m.visible()) - 1
 		m.clampScroll()
+	case "tab", "shift+tab":
+		m.switchTab((m.variantTab + 1) % 3)
+	case "left":
+		m.switchTab((m.variantTab + 2) % 3)
+	case "right":
+		m.switchTab((m.variantTab + 1) % 3)
+	case "1", "2", "3":
+		if !m.hasVariants {
+			m.startFilter(msg.String())
+			return m, nil
+		}
+		m.switchTab(int(msg.String()[0] - '1'))
 	case "/":
 		m.searching = true
 		m.query = ""
@@ -155,16 +192,21 @@ func (m *UI) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if msg.Type != tea.KeyRunes {
 			return m, nil
 		}
-		text := strings.TrimPrefix(printableText(msg.Runes), "/")
-		if text == "" {
-			return m, nil
-		}
-		m.searching = true
-		m.query += text
-		m.cursor = 0
-		m.offset = 0
+		m.startFilter(printableText(msg.Runes))
 	}
 	return m, nil
+}
+
+// startFilter opens the filter with text appended.
+func (m *UI) startFilter(text string) {
+	text = strings.TrimPrefix(text, "/")
+	if text == "" {
+		return
+	}
+	m.searching = true
+	m.query += text
+	m.cursor = 0
+	m.offset = 0
 }
 
 func (m *UI) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -255,12 +297,64 @@ func (m *UI) visible() []int {
 	query := strings.ToLower(strings.TrimSpace(m.query))
 	idxs := make([]int, 0, len(m.themes))
 	for i, theme := range m.themes {
-		if query != "" && !strings.Contains(strings.ToLower(theme.Name), query) {
+		if !m.inTab(theme) {
+			continue
+		}
+		if query != "" &&
+			!strings.Contains(strings.ToLower(theme.Name), query) &&
+			!strings.Contains(theme.Variant, query) {
 			continue
 		}
 		idxs = append(idxs, i)
 	}
 	return idxs
+}
+
+// inTab reports whether theme belongs to the selected light/dark tab.
+func (m *UI) inTab(theme Theme) bool {
+	switch m.variantTab {
+	case 1:
+		return theme.Variant == "light"
+	case 2:
+		return theme.Variant == "dark"
+	default:
+		return true
+	}
+}
+
+// switchTab selects a variant tab; it does nothing unless the theme list keeps
+// light and dark apart.
+func (m *UI) switchTab(tab int) {
+	if !m.hasVariants || tab == m.variantTab {
+		return
+	}
+	m.variantTab = tab
+	m.cursor = 0
+	m.offset = 0
+	m.status = ""
+}
+
+// countVariant returns the number of themes in a tab.
+func (m *UI) countVariant(tab int) int {
+	if tab == 0 {
+		return len(m.themes)
+	}
+	count := 0
+	for _, theme := range m.themes {
+		if (tab == 1 && theme.Variant == "light") || (tab == 2 && theme.Variant == "dark") {
+			count++
+		}
+	}
+	return count
+}
+
+// tabTotal is the number of themes in the selected tab, used as the filter
+// denominator.
+func (m *UI) tabTotal() int {
+	if !m.hasVariants {
+		return len(m.themes)
+	}
+	return m.countVariant(m.variantTab)
 }
 
 func (m *UI) selectedTheme() (Theme, bool) {
@@ -287,12 +381,16 @@ func (m *UI) listHeight() int {
 
 func (m *UI) listWidth() int {
 	widest := 0
+	variant := 0
 	for _, theme := range m.themes {
 		if w := lipgloss.Width(theme.Name); w > widest {
 			widest = w
 		}
+		if w := lipgloss.Width(theme.Variant) + 1; theme.Variant != "" && w > variant {
+			variant = w
+		}
 	}
-	w := widest + 2
+	w := widest + 2 + variant
 	if m.current != "" {
 		// Leave room for the " ✓" marker after the configured theme.
 		w += 2
@@ -351,20 +449,38 @@ func (m *UI) View() string {
 }
 
 func (m *UI) headerView() string {
-	left := styleChip.Render(fmt.Sprintf("Themes %d", len(m.themes)))
+	left := m.titleView()
 
 	var right string
 	switch {
 	case m.searching:
-		right = fmt.Sprintf("filter %s▌  %d/%d", m.query, len(m.visible()), len(m.themes))
+		right = fmt.Sprintf("filter %s▌  %d/%d", m.query, len(m.visible()), m.tabTotal())
 	case m.query != "":
-		right = fmt.Sprintf("filter %s  %d/%d  esc clear", m.query, len(m.visible()), len(m.themes))
+		right = fmt.Sprintf("filter %s  %d/%d  esc clear", m.query, len(m.visible()), m.tabTotal())
 	}
 	rightStyled := styleMuted.Render(right)
 	if m.width < 54 {
 		rightStyled = ""
 	}
 	return joinPadded(left, rightStyled, m.width)
+}
+
+// titleView is the header's left side: the theme count, or the light and dark
+// tabs when the terminal keeps them apart.
+func (m *UI) titleView() string {
+	if !m.hasVariants {
+		return styleChip.Render(fmt.Sprintf("Themes %d", len(m.themes)))
+	}
+	return m.tabLabel(0, fmt.Sprintf("All %d", m.countVariant(0))) + " " +
+		m.tabLabel(1, fmt.Sprintf("Light %d", m.countVariant(1))) + " " +
+		m.tabLabel(2, fmt.Sprintf("Dark %d", m.countVariant(2)))
+}
+
+func (m *UI) tabLabel(tab int, text string) string {
+	if m.variantTab == tab {
+		return styleTabActive.Render(text)
+	}
+	return styleTabInactive.Render(text)
 }
 
 func (m *UI) bodyView() string {
@@ -401,23 +517,44 @@ func (m *UI) listView(width, height int) []string {
 	for i := m.offset; i < m.offset+height && i < len(idxs); i++ {
 		theme := m.themes[idxs[i]]
 		marked := theme.Name == m.current
-		nameLimit := width - 2
+		selected := i == m.cursor
+
+		variantWidth := 0
+		if theme.Variant != "" {
+			variantWidth = lipgloss.Width(theme.Variant) + 1
+		}
+		nameLimit := width - 2 - variantWidth
+		tail := variantWidth
 		if marked {
-			// Leave the last cell free for the check.
-			nameLimit = width - 4
+			// Leave the last two cells free for the gap and the check.
+			nameLimit -= 2
+			tail++
+		}
+		if nameLimit < 1 {
+			nameLimit = 1
 		}
 		name := ansi.Truncate(theme.Name, nameLimit, "…")
 
 		var row string
-		if i == m.cursor {
+		if selected {
 			row = styleSelectedBar.Render("▌ ") + styleSelectedName.Width(nameLimit).Render(name)
+			if pad := width - tail - lipgloss.Width(row); pad > 0 {
+				row += styleSelectedFaint.Render(strings.Repeat(" ", pad))
+			}
 		} else {
 			row = styleMuted.Render("  " + name)
+			row = padWidth(row, width-tail)
+		}
+		if theme.Variant != "" {
+			if selected {
+				row += styleSelectedFaint.Render(theme.Variant)
+			} else {
+				row += styleFaint.Render(theme.Variant)
+			}
+			row += " "
 		}
 		if marked {
-			row = padWidth(row, width-1) + styleOK.Render("✓")
-		} else {
-			row = padWidth(row, width)
+			row += styleOK.Render("✓")
 		}
 		rows = append(rows, row)
 	}
@@ -468,6 +605,13 @@ func (m *UI) themePreview(theme Theme, width, height int) []string {
 	detail := theme.Detail
 	if detail == "" {
 		detail = shortenPath(theme.Path, m.home, w)
+	}
+	if theme.Variant != "" {
+		if detail != "" {
+			detail = theme.Variant + " theme · " + detail
+		} else {
+			detail = theme.Variant + " theme"
+		}
 	}
 	addStyled(faint, detail)
 	add("")
@@ -654,8 +798,14 @@ func contrastColor(hex string) string {
 
 func (m *UI) footerView() string {
 	hints := "  ↑↓ move   / filter   ⏎ apply   q quit"
+	if m.hasVariants {
+		hints = "  ↑↓ move   tab light/dark   / filter   ⏎ apply   q quit"
+	}
 	if m.width < 60 {
 		hints = "  ↑↓  /  ⏎  q"
+		if m.hasVariants {
+			hints = "  ↑↓  tab  /  ⏎  q"
+		}
 	}
 	left := styleFaint.Render(hints)
 

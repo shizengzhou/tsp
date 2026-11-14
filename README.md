@@ -10,8 +10,8 @@ A collection of small tools for previewing terminal settings:
 
 - `tsp omz themes` — oh-my-zsh theme browser with a live prompt preview; `Enter` applies a theme via `omz theme set`
 - `tsp omp themes` — oh-my-posh theme browser with a live prompt preview; `Enter` rewrites the `oh-my-posh init` line of your shell profile
-- `tsp fonts` — installed monospaced font family browser with styles and a glyph sample; `Enter` prints the chosen family name, or saves it to the terminal config when running inside Alacritty, Ghostty or Windows Terminal
-- `tsp themes` — Alacritty, WezTerm, Ghostty and Windows Terminal color theme browser
+- `tsp fonts` — installed monospaced font family browser with styles and a glyph sample; `Enter` prints the chosen family name, or saves it to the terminal config when running inside Alacritty, Ghostty, Gui or Windows Terminal
+- `tsp themes` — Alacritty, WezTerm, Ghostty, Gui and Windows Terminal color theme browser
 
 ## Requirements
 
@@ -32,10 +32,11 @@ A collection of small tools for previewing terminal settings:
 | iTerm2 | Image (iTerm2 inline image) | No | No; refuses to run |
 | VS Code with `terminal.integrated.enableImages` | Image (iTerm2 inline image) | No | No |
 | Otty (Windows, libghostty-based) | Image (Kitty graphics, forwarded through ConPTY) | No | No |
+| Gui (gui-cli, Windows, libghostty-based) | Image (Kitty graphics, forwarded through ConPTY) | Yes, to its config | Yes |
 | tmux | Text sample | No | No |
 | Anything else (Terminal.app, Konsole, GNOME Terminal, …) | Text sample | No | No |
 
-- `tsp themes` runs only inside Alacritty, WezTerm, Ghostty and Windows Terminal, because the chosen colors cannot be seen anywhere else; Windows Terminal only lists the schemes already defined under `schemes` in `settings.json`.
+- `tsp themes` runs only inside Alacritty, WezTerm, Ghostty, Gui and Windows Terminal, because the chosen colors cannot be seen anywhere else; Windows Terminal only lists the schemes already defined under `schemes` in `settings.json`.
 - In tmux and terminals without a graphics protocol the font sample is drawn with your current terminal font, and the pane says `cannot preview: kitty/iTerm2 image protocol not supported`.
 - In VS Code the terminal's image addon rescales the sample to its own cell grid, so the preview is softer than in native terminals.
 
@@ -125,26 +126,26 @@ Both remove the binary and delete the install directory once it is empty; on
 Windows the directory is also dropped from your user `Path` at that point (and
 from the current session), so other tools installed next to `tsp` keep working.
 Files written by `tsp` itself — the `ZSH_THEME` line, `oh-my-posh` init lines,
-`alacritty.toml` imports, the `color_scheme` in `wezterm.lua`, the `theme` line in the Ghostty config and the downloaded themes — are left untouched.
+`alacritty.toml` imports, the `color_scheme` in `wezterm.lua`, the `theme` line in the Ghostty and Gui configs and the downloaded themes — are left untouched.
 
 ## Usage
 
-### Terminal color themes (Alacritty, WezTerm, Ghostty and Windows Terminal)
+### Terminal color themes (Alacritty, WezTerm, Ghostty, Gui and Windows Terminal)
 
 ```bash
 tsp themes
 ```
 
-Inside Alacritty it browses the color schemes in the Alacritty config directory (`~/.config/alacritty/themes`, or `$ALACRITTY_CONFIG_DIRECTORY/themes`); on first run, when that directory is missing, the Alacritty ports from [iTerm2-Color-Schemes](https://github.com/mbadolato/iTerm2-Color-Schemes) are downloaded into it. Inside WezTerm it lists the color schemes built into the WezTerm binary, so nothing is downloaded. Inside Ghostty it lists the themes shipped with the Ghostty app and the ones in `$XDG_CONFIG_HOME/ghostty/themes` (or `~/.config/ghostty/themes`), following Ghostty's documented search order; a user theme wins over a built-in theme with the same name. Inside Windows Terminal it lists the schemes defined under `schemes` in `settings.json`; the schemes built into the app only appear once they are written to that file, so save or add them in Windows Terminal first. Elsewhere it refuses to run, because the selected colors can only be seen there. The list is on the left, with a `✓` at its right edge marking the theme the terminal config already uses; the right pane previews the palette, the foreground/background colors and a sample of terminal output drawn with the theme itself.
+Inside Alacritty it browses the color schemes in the Alacritty config directory (`~/.config/alacritty/themes`, or `$ALACRITTY_CONFIG_DIRECTORY/themes`); on first run, when that directory is missing, the Alacritty ports from [iTerm2-Color-Schemes](https://github.com/mbadolato/iTerm2-Color-Schemes) are downloaded into it. Inside WezTerm it lists the color schemes built into the WezTerm binary, so nothing is downloaded. Inside Ghostty it lists the themes shipped with the Ghostty app and the ones in `$XDG_CONFIG_HOME/ghostty/themes` (or `~/.config/ghostty/themes`), following Ghostty's documented search order; a user theme wins over a built-in theme with the same name. Inside Gui it lists the themes bundled under `<install dir>\Assets\Themes` (their `dark` and `light` halves) and the ones in `%APPDATA%\gui\themes`; the top shows `All`, `Light` and `Dark` tabs (`Tab`, `←`/`→` or `1`/`2`/`3`), and each row also shows its variant at the right edge. Gui uses the Ghostty config format and keeps a light and a dark theme apart, so a user theme wins the same way. Inside Windows Terminal it lists the schemes defined under `schemes` in `settings.json`; the schemes built into the app only appear once they are written to that file, so save or add them in Windows Terminal first. Elsewhere it refuses to run, because the selected colors can only be seen there. The list is on the left, with a `✓` at its right edge marking the theme the terminal config already uses; the right pane previews the palette, the foreground/background colors and a sample of terminal output drawn with the theme itself.
 
-`Enter` applies the scheme. Inside Alacritty it points `general.import` in `alacritty.toml` at the theme file and comments out inline `[colors*]` tables so the import actually wins (Alacritty loads the importing file last). Inside WezTerm it sets `color_scheme` in `wezterm.lua`. Inside Ghostty it writes `theme = Name` to the Ghostty config and comments out `background`, `foreground`, `palette`, `cursor-*` and `selection-*` keys, which would otherwise override the theme. Inside Windows Terminal it sets `profiles.defaults.colorScheme` in `settings.json`. In all four cases a `.bck` backup of the config is kept and the theme is written to the config as soon as you press `Enter`. Alacritty YAML configs are rejected; convert them to TOML first. WezTerm configs must be Lua; Ghostty theme files use the same `key = value` syntax as its config; Windows Terminal uses JSON with comments (`settings.json`) and tsp edits it in place so the existing comments and formatting survive.
+`Enter` applies the scheme. Inside Alacritty it points `general.import` in `alacritty.toml` at the theme file and comments out inline `[colors*]` tables so the import actually wins (Alacritty loads the importing file last). Inside WezTerm it sets `color_scheme` in `wezterm.lua`. Inside Ghostty it writes `theme = Name` to the Ghostty config and comments out `background`, `foreground`, `palette`, `cursor-*` and `selection-*` keys, which would otherwise override the theme. Inside Gui the same Ghostty-format edit is written to `%APPDATA%\gui\config`, but only to the half the theme belongs to: with `theme = light:Gui Light,dark:Gui Dark` in place, applying a dark theme rewrites just the `dark:` part and leaves the light theme alone (and vice versa). Inside Windows Terminal it sets `profiles.defaults.colorScheme` in `settings.json`. In all these cases a `.bck` backup of the config is kept and the theme is written to the config as soon as you press `Enter`. Alacritty YAML configs are rejected; convert them to TOML first. WezTerm configs must be Lua; Ghostty and Gui theme files use the same `key = value` syntax as their configs; Windows Terminal uses JSON with comments (`settings.json`) and tsp edits it in place so the existing comments and formatting survive.
 
 | Flag | Description | Default |
 | --- | --- | --- |
 | `--themes DIR` | Alacritty theme directory | `<Alacritty config dir>/themes` |
-| `--config FILE` | terminal config to edit | `alacritty.toml` in the config dir, the WezTerm config (`$WEZTERM_CONFIG_FILE`, `~/.config/wezterm/wezterm.lua`, `~/.wezterm.lua`), the Ghostty config (`~/Library/Application Support/com.mitchellh.ghostty` when it already exists, otherwise the XDG config), or the Windows Terminal `settings.json` |
+| `--config FILE` | terminal config to edit | `alacritty.toml` in the config dir, the WezTerm config (`$WEZTERM_CONFIG_FILE`, `~/.config/wezterm/wezterm.lua`, `~/.wezterm.lua`), the Ghostty config (`~/Library/Application Support/com.mitchellh.ghostty` when it already exists, otherwise the XDG config), the Gui config (`%APPDATA%\gui\config`), or the Windows Terminal `settings.json` |
 
-Keys: `Up`/`Down`, `j`/`k`, `PgUp`/`PgDn`, `g`/`G`, start typing or `/` to filter, `Enter` applies the theme and quits, `Esc` clears the filter, `q` quits.
+Keys: `Up`/`Down`, `j`/`k`, `PgUp`/`PgDn`, `g`/`G`, start typing or `/` to filter, `Tab` / `←` / `→` (or `1`/`2`/`3`) to switch the All/Light/Dark tabs in Gui, `Enter` applies the theme and quits, `Esc` clears the filter, `q` quits.
 
 For scripting, `tsp themes list` prints the available theme names one per line, `tsp themes set NAME` applies one directly without the browser, and `tsp themes rand` applies a random one; all three accept the same `--themes`/`--config` flags and use the terminal tsp runs in.
 
@@ -273,7 +274,7 @@ Lists every installed monospaced font family it can parse; proportional faces ar
 - Linux: `~/.fonts`, `~/.local/share/fonts`, `/usr/local/share/fonts`, `/usr/share/fonts`
 - Windows: `%WINDIR%\Fonts`, `%LOCALAPPDATA%\Microsoft\Windows\Fonts`
 
-The right pane shows the family name, its styles, a `preview` block with the ASCII glyph sample, and the PostScript name and source file. Characters the selected font does not provide are omitted; fonts without scalable outlines or with too little ASCII coverage fall back to the text sample. `Enter` prints the selected family name to stdout; inside Alacritty it instead saves the chosen family to `alacritty.toml` directly: the normal, bold, italic and bold italic styles are matched automatically and written as inline tables inside `[font]` (for example `normal = { family = 'Maple Mono NF', style = 'Regular' }`), with a `<config>.bck` backup; Alacritty reloads the config automatically. Separate `[font.normal]` tables written by older versions are folded into that form. A style the family does not provide is removed instead of written — switching normal to Cascadia Mono NF also drops the old JetBrainsMono Nerd Font from the bold, italic and bold italic slots — and Alacritty synthesizes it. Inside Ghostty, `Enter` writes `font-family`, `font-family-bold`, `font-family-italic` and `font-family-bold-italic`; every list is reset first because Ghostty appends fallbacks to values from earlier config files, and a style the family lacks is left empty so Ghostty derives it from the regular family. Inside Windows Terminal, `Enter` sets `profiles.defaults.font.face` in `settings.json` to the chosen family (Windows Terminal only has one face setting and derives bold and italic itself), keeping a `settings.json.bck` backup; Windows Terminal reloads the settings automatically. Elsewhere the family name is still printed; a missing config or directory is created.
+The right pane shows the family name, its styles, a `preview` block with the ASCII glyph sample, and the PostScript name and source file. Characters the selected font does not provide are omitted; fonts without scalable outlines or with too little ASCII coverage fall back to the text sample. `Enter` prints the selected family name to stdout; inside Alacritty it instead saves the chosen family to `alacritty.toml` directly: the normal, bold, italic and bold italic styles are matched automatically and written as inline tables inside `[font]` (for example `normal = { family = 'Maple Mono NF', style = 'Regular' }`), with a `<config>.bck` backup; Alacritty reloads the config automatically. Separate `[font.normal]` tables written by older versions are folded into that form. A style the family does not provide is removed instead of written — switching normal to Cascadia Mono NF also drops the old JetBrainsMono Nerd Font from the bold, italic and bold italic slots — and Alacritty synthesizes it. Inside Ghostty, `Enter` writes `font-family`, `font-family-bold`, `font-family-italic` and `font-family-bold-italic`; every list is reset first because Ghostty appends fallbacks to values from earlier config files, and a style the family lacks is left empty so Ghostty derives it from the regular family. Inside Windows Terminal, `Enter` sets `profiles.defaults.font.face` in `settings.json` to the chosen family (Windows Terminal only has one face setting and derives bold and italic itself), keeping a `settings.json.bck` backup; Windows Terminal reloads the settings automatically. Inside Gui, `Enter` writes the same `font-family*` keys to `%APPDATA%\gui\config`, since Gui reads the Ghostty config format. Elsewhere the family name is still printed; a missing config or directory is created.
 
 In terminals that answer a graphics capability query — the Kitty graphics protocol (Kitty, Ghostty, WezTerm and other libghostty-based terminals) or iTerm2's inline image protocol (iTerm2, VS Code with `terminal.integrated.enableImages`) — the sample is rasterized from the selected font and placed in the pane, so it is a real preview. The terminal is queried directly before the browser starts; environment variables back this up for terminals that do not answer the query (some VS Code-based terminals implement inline images without replying). The image has a transparent background and its glyph color follows the terminal's reported background (falling back to `COLORFGBG`), so it stays readable on light and dark themes instead of drawing a colored card. When the terminal reports its cell pixel size (via `TIOCGWINSZ` or `CSI 16 t`), the sample is rasterized at exactly that size, so its glyphs match the terminal's own text instead of being rescaled. Elsewhere (other terminals, tmux) the sample is drawn with your terminal's current font and the pane says `cannot preview: kitty/iTerm2 image protocol not supported`. On Windows, console programs reach the terminal through ConPTY, which normally swallows graphics escapes, so images only appear in terminals whose ConPTY forwards them.
 
@@ -284,7 +285,7 @@ In terminals that answer a graphics capability query — the Kitty graphics prot
 | `g` / `G`, `Home` / `End` | Jump to first / last |
 | Start typing, or `/` | Filter by family name |
 | `Esc` | Clear the filter (and leave input mode) |
-| `Enter` | Print the selected family name and quit, or save it when running inside Alacritty, Ghostty or Windows Terminal |
+| `Enter` | Print the selected family name and quit, or save it when running inside Alacritty, Ghostty, Gui or Windows Terminal |
 | `q`, `Ctrl+C` | Quit |
 
 ## How theme previews are rendered
@@ -302,15 +303,15 @@ Previews are cached per theme and width, and are rendered on selection. At most 
 ## Other behavior
 
 - All browsers must run in an interactive terminal; piped output fails with an error.
-- `tsp themes` refuses to run outside Alacritty, WezTerm, Ghostty or Windows Terminal (Alacritty is detected via `ALACRITTY_SOCKET`/`ALACRITTY_WINDOW_ID`, `TERM_PROGRAM=Alacritty`, or a `TERM` starting with `alacritty`; on Windows, where ConPTY replaces `TERM`, an `alacritty.exe` ancestor process is used instead. WezTerm is detected via `TERM_PROGRAM=WezTerm`, `WEZTERM_PANE`, or `WEZTERM_EXECUTABLE`; Ghostty via `TERM_PROGRAM=ghostty`, a `TERM` starting with `xterm-ghostty`, or `GHOSTTY_RESOURCES_DIR`/`GHOSTTY_BIN_DIR`; Windows Terminal via `WT_SESSION` on the Windows build) because the colors are only visible there.
-- `tsp themes` only understands Alacritty's TOML color files; a `.yml` config is rejected with a migration hint. WezTerm configs must be Lua. Ghostty themes are looked up in the two documented directories and use the regular `key = value` syntax. Windows Terminal schemes come from `schemes` in `settings.json`, which is JSON with comments.
-- The first Alacritty `tsp themes` run needs network access to list and download the themes; a failed download leaves no themes directory behind. WezTerm uses the schemes built into its binary, Ghostty ships its themes, and Windows Terminal reads local settings, so none of them downloads anything.
+- `tsp themes` refuses to run outside Alacritty, WezTerm, Ghostty, Gui or Windows Terminal (Alacritty is detected via `ALACRITTY_SOCKET`/`ALACRITTY_WINDOW_ID`, `TERM_PROGRAM=Alacritty`, or a `TERM` starting with `alacritty`; on Windows, where ConPTY replaces `TERM`, an `alacritty.exe` ancestor process is used instead. WezTerm is detected via `TERM_PROGRAM=WezTerm`, `WEZTERM_PANE`, or `WEZTERM_EXECUTABLE`; Ghostty via `TERM_PROGRAM=ghostty`, a `TERM` starting with `xterm-ghostty`, or `GHOSTTY_RESOURCES_DIR`/`GHOSTTY_BIN_DIR`; Gui via a `gui.exe` ancestor process, since it sets no terminal environment; Windows Terminal via `WT_SESSION` on the Windows build) because the colors are only visible there.
+- `tsp themes` only understands Alacritty's TOML color files; a `.yml` config is rejected with a migration hint. WezTerm configs must be Lua. Ghostty themes are looked up in the two documented directories and use the regular `key = value` syntax; Gui themes come from `<install dir>\Assets\Themes` and `%APPDATA%\gui\themes`, use that same syntax, and are written back to the light or dark half of the config's `theme` line. Windows Terminal schemes come from `schemes` in `settings.json`, which is JSON with comments.
+- The first Alacritty `tsp themes` run needs network access to list and download the themes; a failed download leaves no themes directory behind. WezTerm uses the schemes built into its binary, Ghostty and Gui ship their themes, and Windows Terminal reads local settings, so none of them downloads anything.
 - `tsp omz themes` without oh-my-zsh (or when `<zsh>/themes` is empty) exits with status 1 and a hint to pass `--zsh`.
 - `tsp omp themes` without `oh-my-posh` on `PATH`, or when no theme is found, exits with status 1 and a hint to pass `--themes`.
 - A missing custom directory is fine; the Custom tab is simply empty.
 - Theme previews are static snapshots: content that depends on external tools or runtime state (virtualenv, kube context, clock) may be empty or stale; press `r` to render again.
 - Setting a theme only rewrites `.zshrc` or the shell profile; it does not affect shells that are already running.
-- `tsp fonts` prints nothing when you quit with `q`; only `Enter` emits the family name, or saves the family to the terminal config inside Alacritty, Ghostty and Windows Terminal and prints where it was saved.
+- `tsp fonts` prints nothing when you quit with `q`; only `Enter` emits the family name, or saves the family to the terminal config inside Alacritty, Ghostty, Gui and Windows Terminal and prints where it was saved.
 - Font samples are rasterized with `golang.org/x/image`; OpenType shaping features such as ligatures and stylistic sets are not applied.
 
 ## Releasing
@@ -355,6 +356,11 @@ internal/ghostty/config.go theme updates in the ghostty config
 internal/ghostty/font.go font family updates in the ghostty config
 internal/ghostty/detect.go ghostty detection
 internal/ghostty/run.go ghostty themes entry point
+internal/gui/detect_windows.go Gui detection through the parent process chain
+internal/gui/config.go  Gui theme discovery and Ghostty-format config edits
+internal/gui/run.go     Gui themes entry point
+internal/winproc/process_windows.go parent process chain (ConPTY hides the terminal)
+internal/winproc/process_other.go   no-op ancestor lookup off Windows
 internal/windowsterminal/detect.go Windows Terminal detection and settings.json lookup
 internal/windowsterminal/font.go writes profiles.defaults.font.face
 internal/windowsterminal/scheme.go reads schemes and writes profiles.defaults.colorScheme

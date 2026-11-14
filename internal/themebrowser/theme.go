@@ -12,9 +12,12 @@ import (
 // Theme is one color scheme shown in the browser. Detail is an optional line
 // under the name; when it is empty, Path is displayed instead.
 type Theme struct {
-	Name       string
-	Detail     string
-	Path       string
+	Name   string
+	Detail string
+	Path   string
+	// Variant is "light" or "dark" when the terminal keeps the two apart, and
+	// empty otherwise.
+	Variant    string
 	Foreground string
 	Background string
 	Cursor     string

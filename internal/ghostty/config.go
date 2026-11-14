@@ -74,6 +74,12 @@ func ConfigFile() (string, error) {
 // SetTheme writes theme into configPath, creating the config when it does not
 // exist yet. A .bck copy of the previous config is kept.
 func SetTheme(name, configPath string) error {
+	return SetThemeValue(name, configPath)
+}
+
+// SetThemeValue writes value as the theme line, which lets a terminal that
+// keeps light and dark themes apart write e.g. "light:Foo,dark:Bar".
+func SetThemeValue(value, configPath string) error {
 	raw, err := os.ReadFile(configPath)
 	existed := true
 	switch {
@@ -84,7 +90,7 @@ func SetTheme(name, configPath string) error {
 		return fmt.Errorf("read %s: %w", configPath, err)
 	}
 
-	updated := ApplyTheme(string(raw), name)
+	updated := ApplyThemeValue(string(raw), value)
 
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
 		return fmt.Errorf("create config directory: %w", err)
@@ -104,6 +110,11 @@ func SetTheme(name, configPath string) error {
 // theme line is replaced; otherwise the line is appended. Color keys are
 // commented out because Ghostty applies them on top of the theme.
 func ApplyTheme(raw, name string) string {
+	return ApplyThemeValue(raw, name)
+}
+
+// ApplyThemeValue is ApplyTheme with a ready-made theme line value.
+func ApplyThemeValue(raw, value string) string {
 	lines := strings.Split(raw, "\n")
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -123,19 +134,19 @@ func ApplyTheme(raw, name string) string {
 		}
 		key, _, ok := splitKeyValue(trimmed)
 		if ok && strings.ToLower(key) == "theme" {
-			lines[i] = "theme = " + name
+			lines[i] = "theme = " + value
 			return strings.Join(lines, "\n")
 		}
 	}
 
 	base := strings.Join(lines, "\n")
 	if strings.TrimSpace(base) == "" {
-		return "theme = " + name + "\n"
+		return "theme = " + value + "\n"
 	}
 	if !strings.HasSuffix(base, "\n") {
 		base += "\n"
 	}
-	return base + "theme = " + name + "\n"
+	return base + "theme = " + value + "\n"
 }
 
 // CurrentTheme returns the theme set in the config's last theme line, or ""
@@ -145,7 +156,12 @@ func CurrentTheme(configPath string) string {
 	if err != nil {
 		return ""
 	}
-	return themeInConfig(string(raw))
+	return ThemeInConfig(string(raw))
+}
+
+// ThemeInConfig returns the value of the last uncommented theme line in raw.
+func ThemeInConfig(raw string) string {
+	return themeInConfig(raw)
 }
 
 // themeInConfig picks the last uncommented theme line, the one Ghostty
