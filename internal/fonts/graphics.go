@@ -38,10 +38,18 @@ func graphicsPassthrough() bool {
 	if runtime.GOOS != "windows" {
 		return true
 	}
-	// libghostty-based terminals (Otty and forks) forward the escapes through
-	// their bundled ConPTY.
+	// libghostty-based terminals (Otty, gui-cli and forks) forward the escapes
+	// through their bundled ConPTY. Not all of them set TERM_PROGRAM, and ConPTY
+	// rewrites TERM, so the parent process chain is checked as well.
 	program := strings.ToLower(os.Getenv("TERM_PROGRAM"))
-	return strings.Contains(program, "otty") || strings.Contains(program, "kitty") || strings.Contains(program, "ghostty")
+	if strings.Contains(program, "otty") || strings.Contains(program, "kitty") || strings.Contains(program, "ghostty") {
+		return true
+	}
+	term := strings.ToLower(os.Getenv("TERM"))
+	if strings.Contains(term, "kitty") || strings.Contains(term, "ghostty") {
+		return true
+	}
+	return terminalAncestor() != ""
 }
 
 // detectImageProtocol picks the graphics protocol for the current terminal.
@@ -61,10 +69,17 @@ func detectImageProtocol() imageProtocol {
 	if os.Getenv("TMUX") != "" {
 		return imageProtocolNone
 	}
+
+	// The terminal's own answer comes first: it proves both that the terminal
+	// implements the protocol and that the escapes reach it, so it beats every
+	// platform and terminal-name heuristic.
+	if protocol, queried := terminalProbe(); queried && protocol != imageProtocolNone {
+		return protocol
+	}
 	if !graphicsReachable() {
 		return imageProtocolNone
 	}
-	return detectTerminalProtocol()
+	return envImageProtocol()
 }
 
 // detectTerminalProtocol asks the terminal which protocol it supports. The
@@ -112,6 +127,11 @@ func envImageProtocol() imageProtocol {
 		return imageProtocolKitty
 	}
 	if os.Getenv("WEZTERM_PANE") != "" {
+		return imageProtocolKitty
+	}
+	// Windows hides the terminal in the parent process chain; see
+	// terminalAncestor.
+	if terminalAncestor() != "" {
 		return imageProtocolKitty
 	}
 	return imageProtocolNone
