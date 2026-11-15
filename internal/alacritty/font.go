@@ -1,9 +1,6 @@
 package alacritty
 
 import (
-	"errors"
-	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -39,28 +36,10 @@ func SetFonts(slots []FontSlot, configPath string) (string, error) {
 		return "", err
 	}
 
-	raw, err := os.ReadFile(path)
-	existed := true
-	switch {
-	case err == nil:
-	case errors.Is(err, os.ErrNotExist):
-		existed = false
-	default:
-		return "", fmt.Errorf("read %s: %w", path, err)
-	}
-
-	updated := ApplyFonts(string(raw), slots)
-
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return "", fmt.Errorf("create config directory: %w", err)
-	}
-	if existed {
-		if err := fsutil.WriteFile(path+".bck", raw); err != nil {
-			return "", fmt.Errorf("write backup: %w", err)
-		}
-	}
-	if err := fsutil.WriteFile(path, []byte(updated)); err != nil {
-		return "", fmt.Errorf("write %s: %w", path, err)
+	if err := fsutil.UpdateFile(path, func(raw []byte) ([]byte, error) {
+		return []byte(ApplyFonts(string(raw), slots)), nil
+	}); err != nil {
+		return "", err
 	}
 	return path, nil
 }

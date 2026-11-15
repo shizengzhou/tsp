@@ -1,7 +1,6 @@
 package wezterm
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -51,33 +50,13 @@ func ConfigFile() (string, error) {
 // does not exist yet. A .bck copy of the previous config is kept, and WezTerm
 // reloads it automatically.
 func SetTheme(name, configPath string) error {
-	raw, err := os.ReadFile(configPath)
-	existed := true
-	switch {
-	case err == nil:
-	case errors.Is(err, os.ErrNotExist):
-		existed = false
-	default:
-		return fmt.Errorf("read %s: %w", configPath, err)
-	}
-
-	updated, err := ApplyColorScheme(string(raw), name)
-	if err != nil {
-		return fmt.Errorf("%s: %w", configPath, err)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
-		return fmt.Errorf("create config directory: %w", err)
-	}
-	if existed {
-		if err := fsutil.WriteFile(configPath+".bck", raw); err != nil {
-			return fmt.Errorf("write backup: %w", err)
+	return fsutil.UpdateFile(configPath, func(raw []byte) ([]byte, error) {
+		updated, err := ApplyColorScheme(string(raw), name)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", configPath, err)
 		}
-	}
-	if err := fsutil.WriteFile(configPath, []byte(updated)); err != nil {
-		return fmt.Errorf("write %s: %w", configPath, err)
-	}
-	return nil
+		return []byte(updated), nil
+	})
 }
 
 // ApplyColorScheme returns config contents that set color_scheme to name. An

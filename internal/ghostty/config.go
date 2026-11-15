@@ -2,7 +2,6 @@ package ghostty
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -80,30 +79,9 @@ func SetTheme(name, configPath string) error {
 // SetThemeValue writes value as the theme line, which lets a terminal that
 // keeps light and dark themes apart write e.g. "light:Foo,dark:Bar".
 func SetThemeValue(value, configPath string) error {
-	raw, err := os.ReadFile(configPath)
-	existed := true
-	switch {
-	case err == nil:
-	case errors.Is(err, os.ErrNotExist):
-		existed = false
-	default:
-		return fmt.Errorf("read %s: %w", configPath, err)
-	}
-
-	updated := ApplyThemeValue(string(raw), value)
-
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
-		return fmt.Errorf("create config directory: %w", err)
-	}
-	if existed {
-		if err := fsutil.WriteFile(configPath+".bck", raw); err != nil {
-			return fmt.Errorf("write backup: %w", err)
-		}
-	}
-	if err := fsutil.WriteFile(configPath, []byte(updated)); err != nil {
-		return fmt.Errorf("write %s: %w", configPath, err)
-	}
-	return nil
+	return fsutil.UpdateFile(configPath, func(raw []byte) ([]byte, error) {
+		return []byte(ApplyThemeValue(string(raw), value)), nil
+	})
 }
 
 // ApplyTheme returns config contents that use the named theme. An existing

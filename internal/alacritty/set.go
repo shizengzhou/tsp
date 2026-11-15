@@ -1,8 +1,6 @@
 package alacritty
 
 import (
-	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,30 +12,10 @@ import (
 // section so the import actually takes effect. A .bck copy of the previous
 // config is kept. Alacritty reloads the config automatically.
 func SetTheme(theme Theme, configPath, themeDir string) error {
-	raw, err := os.ReadFile(configPath)
-	existed := true
-	switch {
-	case err == nil:
-	case errors.Is(err, os.ErrNotExist):
-		existed = false
-	default:
-		return fmt.Errorf("read %s: %w", configPath, err)
-	}
-
-	updated := ApplyTheme(string(raw), theme.Path, themeDir, filepath.Dir(configPath))
-
-	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
-		return fmt.Errorf("create config directory: %w", err)
-	}
-	if existed {
-		if err := fsutil.WriteFile(configPath+".bck", raw); err != nil {
-			return fmt.Errorf("write backup: %w", err)
-		}
-	}
-	if err := fsutil.WriteFile(configPath, []byte(updated)); err != nil {
-		return fmt.Errorf("write %s: %w", configPath, err)
-	}
-	return nil
+	configDir := filepath.Dir(configPath)
+	return fsutil.UpdateFile(configPath, func(raw []byte) ([]byte, error) {
+		return []byte(ApplyTheme(string(raw), theme.Path, themeDir, configDir)), nil
+	})
 }
 
 // ApplyTheme returns config contents that import themePath. Color tables in the

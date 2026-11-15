@@ -3,6 +3,7 @@ package fsutil
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -10,6 +11,40 @@ import (
 // DefaultMode is the mode of a file created from scratch. Files that already
 // exist keep their own mode.
 const DefaultMode = 0o644
+
+// UpdateFile rewrites path with the bytes update returns. When the file
+// already exists, its contents are first copied to path.bck; a missing parent
+// directory is created. An error from update leaves the file untouched.
+func UpdateFile(path string, update func(raw []byte) ([]byte, error)) error {
+	raw, err := os.ReadFile(path)
+	existed := true
+	switch {
+	case err == nil:
+	case errors.Is(err, os.ErrNotExist):
+		existed = false
+		raw = nil
+	default:
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+
+	updated, err := update(raw)
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return fmt.Errorf("create config directory: %w", err)
+	}
+	if existed {
+		if err := WriteFile(path+".bck", raw); err != nil {
+			return fmt.Errorf("write backup: %w", err)
+		}
+	}
+	if err := WriteFile(path, updated); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	return nil
+}
 
 // WriteFile replaces path with data atomically: the data goes into a temporary
 // file next to the target, which is then renamed over it. An interrupted or

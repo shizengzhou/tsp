@@ -1,6 +1,7 @@
 package fsutil
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -118,5 +119,84 @@ func TestWriteFileFailsWithoutDirectory(t *testing.T) {
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("target exists after a failed write: %v", err)
+	}
+}
+
+func TestUpdateFileCreatesFileAndDirectory(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "nested", "config")
+
+	if err := UpdateFile(path, func(raw []byte) ([]byte, error) {
+		if raw != nil {
+			t.Errorf("update got %q for a missing file, want nil", raw)
+		}
+		return []byte("new\n"), nil
+	}); err != nil {
+		t.Fatalf("UpdateFile: %v", err)
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if string(data) != "new\n" {
+		t.Errorf("content = %q", data)
+	}
+	if _, err := os.Stat(path + ".bck"); !os.IsNotExist(err) {
+		t.Errorf("a backup was created for a file that did not exist: %v", err)
+	}
+}
+
+func TestUpdateFileBacksUpPreviousContents(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	if err := os.WriteFile(path, []byte("old\n"), 0o644); err != nil {
+		t.Fatalf("seed %s: %v", path, err)
+	}
+
+	if err := UpdateFile(path, func(raw []byte) ([]byte, error) {
+		if string(raw) != "old\n" {
+			t.Errorf("update got %q, want the previous contents", raw)
+		}
+		return []byte("new\n"), nil
+	}); err != nil {
+		t.Fatalf("UpdateFile: %v", err)
+	}
+
+	backup, err := os.ReadFile(path + ".bck")
+	if err != nil {
+		t.Fatalf("read backup: %v", err)
+	}
+	if string(backup) != "old\n" {
+		t.Errorf("backup = %q, want the previous contents", backup)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if string(data) != "new\n" {
+		t.Errorf("content = %q", data)
+	}
+}
+
+func TestUpdateFileLeavesFileWhenUpdateFails(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	if err := os.WriteFile(path, []byte("old\n"), 0o644); err != nil {
+		t.Fatalf("seed %s: %v", path, err)
+	}
+
+	if err := UpdateFile(path, func([]byte) ([]byte, error) {
+		return nil, errors.New("boom")
+	}); err == nil {
+		t.Fatal("UpdateFile succeeded although update failed")
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if string(data) != "old\n" {
+		t.Errorf("content = %q, want the file untouched", data)
+	}
+	if _, err := os.Stat(path + ".bck"); !os.IsNotExist(err) {
+		t.Errorf("a backup was written for a failed update: %v", err)
 	}
 }
